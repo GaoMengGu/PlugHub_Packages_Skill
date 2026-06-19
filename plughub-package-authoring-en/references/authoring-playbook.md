@@ -44,7 +44,7 @@ Minimal project shape:
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\revittool\src\PlugHub.Contracts\PlugHub.Contracts.csproj" />
+    <ProjectReference Include="$(PlugHubRoot)\src\PlugHub.Contracts\PlugHub.Contracts.csproj" />
   </ItemGroup>
 </Project>
 ```
