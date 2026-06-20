@@ -21,24 +21,28 @@
 
 ## 工作流 / workflow
 
-1. 定位插件包根目录、现有清单和附近示例。
-2. 将需求映射为模块 id、功能 id、Ribbon 分组、按钮大小、图标路径、命令程序集和命令类型。
-3. 维护 `package.json` 或 `*.package.json`，确保 `schemaVersion`、`version`、`revitVersions`、`frameworkVersionRange` 和 `modules` 完整。
-4. 实现或修复 `net48` 命令程序集，命令类型必须实现 `Autodesk.Revit.UI.IExternalCommand`。
-5. 保持载荷为包内相对路径：`dist/*.dll` 和 `icons/*.png`。
-6. 更新构建入口、解决方案或包仓库集成文件。
-7. 运行 C# 包验证器、仓库验证器和编译检查；能运行 Revit 2020 时做 runtime smoke test。
+1. 确认用户指定的工作分支；未指定时先询问用户分支，不要默认使用 `codex`。
+2. 同步最新 `main`，再从最新 `main` 创建或更新用户指定分支。
+3. 定位插件包根目录、现有清单和附近示例。
+4. 将需求映射为模块 id、功能 id、Ribbon 分组、图标路径、命令程序集和命令类型。
+5. 维护 `packages.json` 或 `*.packages.json`，确保 `schemaVersion`、`indexVersion`、`revitVersions`、`frameworkVersionRange`、module `version` 和 `modules` 完整。
+6. 实现或修复 `net48` 命令程序集，命令类型必须实现 `Autodesk.Revit.UI.IExternalCommand`。
+7. 保持载荷为包内相对路径：`dist/*.dll` 和 `icons/*.png`。
+8. 更新构建入口、解决方案或包仓库集成文件。
+9. 运行 C# 包验证器、仓库验证器和编译检查；能运行 Revit 2020 时做 runtime smoke test。
+10. 提交并推送到用户指定分支后，跟踪 GitHub workflow 结果。
 
 ## 交付 / delivery
 
 交付结果必须说明：
 
 - 修改或新增的清单文件。
-- `assembly`、`commandAssembly`、`iconPath` 对应的包内相对载荷。
+- `assembly`、可选 `commandAssembly`、`iconPath` 对应的包内相对载荷。
 - 新增或修复的命令类型。
 - 构建集成位置。
 - C# 静态验证和编译结果。
 - Revit 2020 runtime smoke test 结果；无法执行时，明确标记待执行。
+- 推送目标分支、commit 和 GitHub workflow 结果；无法访问 workflow 时明确标记未确认。
 
 ## Hermes / OpenClaw
 

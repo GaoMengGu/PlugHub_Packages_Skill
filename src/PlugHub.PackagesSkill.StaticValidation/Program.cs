@@ -52,6 +52,7 @@ internal static class RepositoryValidator
         ValidateSkills(root, errors);
         ValidateSkillsJson(root, errors);
         ValidateWorkflow(root, errors);
+        ValidateGitAttributes(root, errors);
         ValidateNoLegacyScripts(root, errors);
         ValidateNoTextLeaks(root, errors);
 
@@ -66,6 +67,7 @@ internal static class RepositoryValidator
             "README.zh-CN.md",
             "README.en-US.md",
             "skills.json",
+            ".gitattributes",
             ".github/workflows/sync-gitee.yml"
         }.Concat(AgentEntryFiles))
         {
@@ -172,6 +174,11 @@ internal static class RepositoryValidator
             RequireContains(agents, "skills.json", "agent-entries/core/AGENTS.md must use skills.json discovery.", errors);
             RequireContains(agents, "Hermes", "agent-entries/core/AGENTS.md must mention Hermes.", errors);
             RequireContains(agents, "OpenClaw", "agent-entries/core/AGENTS.md must mention OpenClaw.", errors);
+            RequireContains(agents, "用户指定的工作分支", "agent-entries/core/AGENTS.md must require a user-specified work branch.", errors);
+            RequireContains(agents, "不要默认使用 `codex`", "agent-entries/core/AGENTS.md must forbid defaulting to codex.", errors);
+            RequireContains(agents, "同步最新 `main`", "agent-entries/core/AGENTS.md must require syncing latest main.", errors);
+            RequireContains(agents, "跟踪 GitHub workflow", "agent-entries/core/AGENTS.md must require tracking GitHub workflow results.", errors);
+            RequireContains(agents, "推送目标分支", "agent-entries/core/AGENTS.md delivery must report the push target branch.", errors);
         }
 
         var agentsEnglish = ReadRequiredText(root, "agent-entries/core/AGENTS.en-US.md", errors);
@@ -183,6 +190,11 @@ internal static class RepositoryValidator
             RequireContains(agentsEnglish, "agent-entries/core/IDENTITY.en-US.md", "agent-entries/core/AGENTS.en-US.md must load IDENTITY.en-US.md.", errors);
             RequireContains(agentsEnglish, "agent-entries/core/SOUL.en-US.md", "agent-entries/core/AGENTS.en-US.md must load SOUL.en-US.md.", errors);
             RequireContains(agentsEnglish, "skills.json", "agent-entries/core/AGENTS.en-US.md must use skills.json discovery.", errors);
+            RequireContains(agentsEnglish, "user-specified work branch", "agent-entries/core/AGENTS.en-US.md must require a user-specified work branch.", errors);
+            RequireContains(agentsEnglish, "do not default to `codex`", "agent-entries/core/AGENTS.en-US.md must forbid defaulting to codex.", errors);
+            RequireContains(agentsEnglish, "Sync latest `main`", "agent-entries/core/AGENTS.en-US.md must require syncing latest main.", errors);
+            RequireContains(agentsEnglish, "track GitHub workflow", "agent-entries/core/AGENTS.en-US.md must require tracking GitHub workflow results.", errors);
+            RequireContains(agentsEnglish, "Push target branch", "agent-entries/core/AGENTS.en-US.md delivery must report the push target branch.", errors);
         }
 
         foreach (var platformEntry in new Dictionary<string, string>
@@ -228,6 +240,8 @@ internal static class RepositoryValidator
             var contract = ReadRequiredText(root, $"{skillDirectory}/references/plughub-package-contract.md", errors);
             var playbook = ReadRequiredText(root, $"{skillDirectory}/references/authoring-playbook.md", errors);
             RequireContains(playbook, "tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj", $"{skillDirectory}/authoring-playbook.md must reference the C# package validator.", errors);
+            ValidatePackageManifestContract(root, skillDirectory, skillText, contract, playbook, errors);
+            ValidateGitHubWorkflow(skillDirectory, skillText, playbook, errors);
             ValidateIconDesignLanguage(skillDirectory, skillText, contract, playbook, errors);
 
             var compatibility = ReadRequiredText(root, $"{skillDirectory}/references/agent-compatibility.md", errors);
@@ -236,6 +250,64 @@ internal static class RepositoryValidator
                 RequireContains(compatibility, agent, $"{skillDirectory}/agent-compatibility.md must mention {agent}.", errors);
             }
         }
+    }
+
+    private static void ValidatePackageManifestContract(string root, string skillDirectory, string skillText, string contract, string playbook, List<string> errors)
+    {
+        var validator = ReadRequiredText(root, $"{skillDirectory}/tools/PlugHub.PackageValidator/Program.cs", errors);
+        var combinedDocs = string.Join("\n", skillText, contract, playbook);
+
+        RequireContains(combinedDocs, "packages.json", $"{skillDirectory} docs must use the current packages.json manifest name.", errors);
+        RequireContains(combinedDocs, "*.packages.json", $"{skillDirectory} docs must mention adjacent *.packages.json manifests.", errors);
+        RequireContains(combinedDocs, "indexVersion", $"{skillDirectory} docs must document repository indexVersion.", errors);
+        RequireAnyContains(combinedDocs, ["module `version`", "module.version", "每个 module 包含 `id`、`version`"], $"{skillDirectory} docs must document module-level version.", errors);
+        RequireContains(combinedDocs, skillDirectory.EndsWith("-en", StringComparison.Ordinal) ? "publishable clickable package" : "可发布、可点击插件包", $"{skillDirectory} docs must distinguish skill publish constraints from the PlugHub runtime minimum.", errors);
+
+        RejectContains(combinedDocs, "`package.json`", $"{skillDirectory} docs must not document the legacy package.json manifest name.", errors);
+        RejectContains(combinedDocs, "`*.package.json`", $"{skillDirectory} docs must not document the legacy *.package.json manifest pattern.", errors);
+        RejectContains(combinedDocs, "\"schemaVersion\": \"1.0\",\n  \"version\": \"V1.0.0\"", $"{skillDirectory} docs must not show a legacy root version sample.", errors);
+        RejectContains(combinedDocs, "\"enabled\": true,\n      \"visible\": true", $"{skillDirectory} docs must not tell authors to write enabled/visible package state fields.", errors);
+        RejectContains(combinedDocs, "\"visible\": true", $"{skillDirectory} docs must not tell authors to write visible state fields.", errors);
+        RejectContains(combinedDocs, "\"defaultState\"", $"{skillDirectory} docs must not tell authors to write defaultState layout fields.", errors);
+        RejectContains(combinedDocs, "\"buttonSize\"", $"{skillDirectory} docs must not tell authors to write buttonSize layout fields.", errors);
+        RejectContains(combinedDocs, "\"commandAssembly\": \"dist/PlugHub.ExampleTool.dll\"", $"{skillDirectory} docs must not repeat commandAssembly when module assembly is sufficient.", errors);
+        RejectContains(playbook, "DefaultState = FeatureState.Visible", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden layout state fields.", errors);
+        RejectContains(playbook, "ButtonSize = \"large\"", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden layout state fields.", errors);
+        RejectContains(playbook, "CommandAssembly = \"dist/PlugHub.ExampleTool.dll\"", $"{skillDirectory}/authoring-playbook.md descriptor example should inherit module assembly instead of repeating command assembly.", errors);
+        RejectContains(playbook, "Order = 500", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden ordering fields.", errors);
+        RejectContains(playbook, "Order = 510", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden ordering fields.", errors);
+
+        RequireContains(validator, "var manifest = \"packages.json\"", $"{skillDirectory} package validator must default to packages.json.", errors);
+        RequireContains(validator, "indexVersion", $"{skillDirectory} package validator must validate root indexVersion.", errors);
+        RequireContains(validator, "moduleVersion", $"{skillDirectory} package validator must validate module-level version.", errors);
+        RequireContains(validator, "DisallowedModuleKeys", $"{skillDirectory} package validator must reject module runtime state fields.", errors);
+        RequireContains(validator, "DisallowedFeatureKeys", $"{skillDirectory} package validator must reject feature layout state fields.", errors);
+        RejectContains(validator, "var manifest = \"package.json\"", $"{skillDirectory} package validator must not default to legacy package.json.", errors);
+        RejectContains(validator, "Root version", $"{skillDirectory} package validator must not require legacy root version.", errors);
+    }
+
+    private static void ValidateGitHubWorkflow(string skillDirectory, string skillText, string playbook, List<string> errors)
+    {
+        var combinedDocs = string.Join("\n", skillText, playbook);
+        if (skillDirectory.EndsWith("-en", StringComparison.Ordinal))
+        {
+            RequireContains(combinedDocs, "user-specified work branch", $"{skillDirectory} docs must require a user-specified work branch.", errors);
+            RequireContains(combinedDocs, "ask the user for the branch", $"{skillDirectory} docs must ask for a branch when none is specified.", errors);
+            RequireContains(combinedDocs, "Do not default to `codex`", $"{skillDirectory} docs must forbid defaulting to codex.", errors);
+            RequireContains(combinedDocs, "sync latest `main`", $"{skillDirectory} docs must require syncing latest main before work.", errors);
+            RequireContains(combinedDocs, "track GitHub workflow", $"{skillDirectory} docs must require tracking GitHub workflow results after push.", errors);
+            RequireContains(playbook, "Branch State Decision Table", $"{skillDirectory}/authoring-playbook.md must define branch state handling decisions.", errors);
+            RequireContains(playbook, "remote branch is ahead or diverged", $"{skillDirectory}/authoring-playbook.md must stop on ahead/diverged branches instead of force-updating.", errors);
+            return;
+        }
+
+        RequireContains(combinedDocs, "用户指定的工作分支", $"{skillDirectory} docs must require a user-specified work branch.", errors);
+        RequireContains(combinedDocs, "先询问用户分支", $"{skillDirectory} docs must ask for a branch when none is specified.", errors);
+        RequireContains(combinedDocs, "不要默认使用 `codex`", $"{skillDirectory} docs must forbid defaulting to codex.", errors);
+        RequireContains(combinedDocs, "同步最新 `main`", $"{skillDirectory} docs must require syncing latest main before work.", errors);
+        RequireContains(combinedDocs, "跟踪 GitHub workflow", $"{skillDirectory} docs must require tracking GitHub workflow results after push.", errors);
+        RequireContains(playbook, "分支状态决策表", $"{skillDirectory}/authoring-playbook.md must define branch state handling decisions.", errors);
+        RequireContains(playbook, "远端分支领先或已分叉", $"{skillDirectory}/authoring-playbook.md must stop on ahead/diverged branches instead of force-updating.", errors);
     }
 
     private static void ValidateIconDesignLanguage(string skillDirectory, string skillText, string contract, string playbook, List<string> errors)
@@ -446,6 +518,21 @@ internal static class RepositoryValidator
         RequireContains(workflow, "GITEE_PRIVATE_KEY", "Gitee sync workflow must use the GITEE_PRIVATE_KEY secret.", errors);
     }
 
+    private static void ValidateGitAttributes(string root, List<string> errors)
+    {
+        var gitAttributes = ReadRequiredText(root, ".gitattributes", errors);
+        if (gitAttributes.Length == 0)
+        {
+            return;
+        }
+
+        RequireContains(gitAttributes, "* text=auto", ".gitattributes must enable text normalization.", errors);
+        foreach (var pattern in new[] { "*.md text eol=lf", "*.yaml text eol=lf", "*.yml text eol=lf", "*.json text eol=lf", "*.cs text eol=lf", "*.csproj text eol=lf" })
+        {
+            RequireContains(gitAttributes, pattern, $".gitattributes must pin LF endings for {pattern.Split(' ')[0]}.", errors);
+        }
+    }
+
     private static void ValidateNoLegacyScripts(string root, List<string> errors)
     {
         var legacyFiles = Directory.EnumerateFiles(root, "*.py", SearchOption.AllDirectories)
@@ -565,6 +652,14 @@ internal static class RepositoryValidator
     private static void RequireContains(string text, string expected, string error, List<string> errors)
     {
         if (!text.Contains(expected, StringComparison.Ordinal))
+        {
+            errors.Add(error);
+        }
+    }
+
+    private static void RequireAnyContains(string text, string[] expectedValues, string error, List<string> errors)
+    {
+        if (!expectedValues.Any(expected => text.Contains(expected, StringComparison.Ordinal)))
         {
             errors.Add(error);
         }

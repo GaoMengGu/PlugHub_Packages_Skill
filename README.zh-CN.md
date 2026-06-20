@@ -25,7 +25,7 @@ Agent 拿到仓库地址后，应优先读取 [skills.json](skills.json)，再�
 
 该技能用于创建、审查或修复 PlugHub 插件包，重点覆盖：
 
-- `package.json` / `*.package.json` 清单。
+- `packages.json` / `*.packages.json` 清单。
 - `dist/*.dll` 包内相对载荷。
 - `Autodesk.Revit.UI.IExternalCommand` 命令类型。
 - `PlugHub.Contracts` 模块描述。
