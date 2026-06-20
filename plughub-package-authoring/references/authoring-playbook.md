@@ -4,6 +4,26 @@
 
 ## 实现步骤
 
+0. 准备 GitHub 工作分支。
+   - 使用用户指定的工作分支；如果用户没有指定，先询问用户分支，不要默认使用 `codex`。
+   - 检查 `git status`，不要覆盖已有未提交改动。
+   - 同步最新 `main`：`git fetch origin`，切到 `main` 后执行 `git pull --ff-only origin main`。
+   - 从最新 `main` 创建或更新用户指定分支，再在该分支继续实现。
+   - 提交推送后跟踪 GitHub workflow：优先使用 `gh run list`、`gh run watch`、`gh run view --log-failed`；无法访问时在交付结果中标记 workflow 未确认。
+
+### 分支状态决策表
+
+| 状态 | 处理 |
+| --- | --- |
+| 用户没有指定分支 | 停止并询问用户分支；不要修改代码、提交或推送。 |
+| 工作区有未提交改动 | 停止并说明改动；只有用户同意时才 stash、提交或继续叠加修改。 |
+| 用户指定分支不存在 | 从最新 `origin/main` 创建该分支。 |
+| 用户指定分支存在且干净 | 先同步最新 `main`，再把该分支更新到最新 `main` 后继续。 |
+| 远端分支领先或已分叉 | 停止并报告差异；不要静默 rebase、强推或覆盖远端。 |
+| 更新分支时出现冲突 | 停止并报告冲突文件；不要猜测解决。 |
+
+本技能和包验证器执行的是可发布、可点击插件包强约束：module 必须有版本、可分发程序集和非空功能列表，命令功能必须声明 `commandType`。这比 PlugHub 运行时最低 JSON 读取条件更严格，目的是避免交付无法安装或无法点击的包。
+
 1. 选择稳定命名。
    - Assembly：`PlugHub.<FeatureArea>`。
    - Namespace：与 assembly 保持一致。
@@ -70,7 +90,6 @@ namespace PlugHub.ExampleTool
                 Name = "示例工具",
                 Description = "示例 PlugHub 插件包。",
                 State = ModuleState.Enabled,
-                Order = 500,
                 Tags = new[] { "example", "revit-api" },
                 Features = new List<FeatureDescriptor>
                 {
@@ -83,10 +102,6 @@ namespace PlugHub.ExampleTool
                         Category = "example",
                         Group = "示例工具",
                         Tags = new[] { "example" },
-                        Order = 510,
-                        DefaultState = FeatureState.Visible,
-                        ButtonSize = "large",
-                        CommandAssembly = "dist/PlugHub.ExampleTool.dll",
                         CommandType = "PlugHub.ExampleTool.RunExampleCommand"
                     }
                 }
@@ -98,6 +113,8 @@ namespace PlugHub.ExampleTool
     }
 }
 ```
+
+描述器用于让程序集自描述，清单仍是 PlugHub 插件包发现的主入口。不要把 `Order`、`DefaultState`、`ButtonSize`、`CommandAssembly` 等兼容字段照搬到仓库 JSON 清单；新包让 feature 继承 module `assembly`，布局和状态交给框架默认值与用户配置。
 
 4. 添加外部命令。
 
@@ -143,7 +160,7 @@ namespace PlugHub.ExampleTool
 ```
 
 5. 注册插件包。
-   - 在 `package.json` 中添加 module 和 feature 记录。
+   - 在 `packages.json` 中添加 module 和 feature 记录。
    - 如果存在 solution 文件，将项目加入 solution。
    - 如果仓库使用集中构建脚本，将项目路径加入 `build.ps1`。
    - 使用文生图生成 feature 图标：从功能名称和描述中提取核心动词/名词，剔除写实细节，把概念转为方块、阵列、粗箭头或重叠剪影，再按 PlugHub 风格化生成 PNG。
@@ -181,11 +198,13 @@ Output: Only the black and transparent solid icon PNG asset, perfectly centered,
 
 ## 仓库检查清单
 
-- `package.json` 包含 `schemaVersion`、`version`、`revitVersions`、`frameworkVersionRange` 和 `modules`。
+- `packages.json` 包含 `schemaVersion`、`indexVersion`、`revitVersions`、`frameworkVersionRange` 和 `modules`。
+- 每个 module 包含 `id`、`version`、`assembly` 和 `features`。
 - 每个 `module.id` 和 `feature.id` 都唯一且稳定。
-- 每个命令功能都声明 `commandAssembly` 和 `commandType`。
-- 每个相对 `assembly`、`commandAssembly`、`iconPath` 指向的文件都存在。
+- 每个命令功能都声明 `commandType`，并通过 feature `commandAssembly` 或 module `assembly` 解析到命令 DLL。
+- 每个相对 `assembly`、`commandAssembly`、`iconPath` 指向的文件都存在；新包通常省略 `commandAssembly` 并继承 module `assembly`。
 - `dist/*.dll` 包含命令类型，并作为分发包的一部分保留。
 - `icons/*.png` 是生成或用户提供的真实 PNG，存在且为包内相对路径。
+- 不要把 `enabled`、`visible`、`defaultState`、`buttonSize` 等运行时状态或布局字段写入仓库清单。
 - 不要把 `bin/`、`obj/`、PDB、Revit API DLL 视为插件包 release 载荷。
-- 最终 release 或 ZIP 只包含用户安装需要的载荷，例如 `package.json`、`dist/*.dll`、`icons/*.png`。
+- 最终 release 或 ZIP 只包含用户安装需要的载荷，例如 `packages.json`、`dist/*.dll`、`icons/*.png`。

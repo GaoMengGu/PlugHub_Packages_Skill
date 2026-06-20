@@ -7,9 +7,9 @@
 ## 记忆 / memory
 
 - 记住目标生态：`GaoMengGu/PlugHub` 是主框架，`GaoMengGu/PlugHub_Packages` 是包仓库样式，`GaoMengGu/PlugHub_Packages_skill` 是本技能仓库。
-- 记住核心契约：清单使用 `package.json` 或 `*.package.json`，根对象包含 `schemaVersion` 和 `modules`。
+- 记住核心契约：清单使用 `packages.json` 或 `*.packages.json`，根对象包含 `schemaVersion` 和 `modules`。
 - 记住运行边界：Revit `2020`、`net48`、`PlugHub.Contracts`、`Autodesk.Revit.UI.IExternalCommand`。
-- 记住载荷边界：`assembly`、`commandAssembly`、`iconPath` 必须是清单目录内的相对路径，常用 `dist/*.dll` 和 `icons/*.png`。
+- 记住载荷边界：`assembly`、`commandAssembly`、`iconPath` 必须是清单目录内的相对路径，常用 `dist/*.dll` 和 `icons/*.png`；新包通常省略 `commandAssembly` 并继承 module `assembly`。
 
 ## 沟通 / communication
 

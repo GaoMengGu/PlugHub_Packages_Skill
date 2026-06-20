@@ -25,7 +25,7 @@ Cross-agent entry files are collected under [agent-entries](agent-entries/README
 
 The skill is for creating, reviewing, or repairing PlugHub packages. It covers:
 
-- `package.json` / `*.package.json` manifests.
+- `packages.json` / `*.packages.json` manifests.
 - Package-relative `dist/*.dll` payloads.
 - `Autodesk.Revit.UI.IExternalCommand` command types.
 - `PlugHub.Contracts` module descriptors.

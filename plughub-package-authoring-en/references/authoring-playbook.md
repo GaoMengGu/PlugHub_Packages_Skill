@@ -4,6 +4,26 @@ Use this playbook when implementing or repairing a PlugHub package repository.
 
 ## Implementation Steps
 
+0. Prepare the GitHub work branch.
+   - Use the user-specified work branch; if the user has not specified one, ask the user for the branch and do not default to `codex`.
+   - Inspect `git status` and do not overwrite existing uncommitted changes.
+   - Sync latest `main`: run `git fetch origin`, switch to `main`, then run `git pull --ff-only origin main`.
+   - Create or update the user-specified branch from latest `main`, then continue implementation on that branch.
+   - After commit and push, track GitHub workflow results: prefer `gh run list`, `gh run watch`, and `gh run view --log-failed`; if workflow status cannot be accessed, mark workflow verification as unconfirmed in the delivery result.
+
+### Branch State Decision Table
+
+| State | Handling |
+| --- | --- |
+| No user-specified branch | Stop and ask the user for the branch; do not edit code, commit, or push. |
+| Worktree has uncommitted changes | Stop and describe the changes; stash, commit, or layer edits only with user consent. |
+| User-specified branch does not exist | Create it from latest `origin/main`. |
+| User-specified branch exists and is clean | Sync latest `main`, then update that branch from latest `main` before continuing. |
+| The remote branch is ahead or diverged | Stop and report the difference; do not silently rebase, force-push, or overwrite remote state. |
+| Updating the branch creates conflicts | Stop and report conflicting files; do not guess a resolution. |
+
+This skill and package validator enforce a publishable clickable package contract: modules need a version, distributable assembly, and non-empty feature list, and command features need `commandType`. This is stricter than PlugHub's minimum runtime JSON-read condition so delivered packages are installable and clickable.
+
 1. Choose stable names.
    - Assembly: `PlugHub.<FeatureArea>`.
    - Namespace: match the assembly.
@@ -70,7 +90,6 @@ namespace PlugHub.ExampleTool
                 Name = "Example Tools",
                 Description = "Example PlugHub tool package.",
                 State = ModuleState.Enabled,
-                Order = 500,
                 Tags = new[] { "example", "revit-api" },
                 Features = new List<FeatureDescriptor>
                 {
@@ -83,10 +102,6 @@ namespace PlugHub.ExampleTool
                         Category = "example",
                         Group = "Example Tools",
                         Tags = new[] { "example" },
-                        Order = 510,
-                        DefaultState = FeatureState.Visible,
-                        ButtonSize = "large",
-                        CommandAssembly = "dist/PlugHub.ExampleTool.dll",
                         CommandType = "PlugHub.ExampleTool.RunExampleCommand"
                     }
                 }
@@ -98,6 +113,8 @@ namespace PlugHub.ExampleTool
     }
 }
 ```
+
+The descriptor lets the assembly describe itself, but the manifest remains the primary PlugHub package discovery entry. Do not copy compatibility fields such as `Order`, `DefaultState`, `ButtonSize`, or `CommandAssembly` into repository JSON manifests; new packages should let features inherit module `assembly`, while layout and state remain owned by framework defaults and user configuration.
 
 4. Add an external command.
 
@@ -143,7 +160,7 @@ namespace PlugHub.ExampleTool
 ```
 
 5. Register the package.
-   - Add a module entry and feature entry to `package.json`.
+   - Add a module entry and feature entry to `packages.json`.
    - Add the project to the solution file if one exists.
    - Add the project path to `build.ps1` if the repo uses a central build script.
    - Generate the feature icon with text-to-image: extract the core verb or noun from the feature name and description, remove realism, reduce the concept to blocks, matrices, heavy arrows, or overlapping silhouettes, then generate a PNG with PlugHub styling.
@@ -181,11 +198,13 @@ Output: Only the black and transparent solid icon PNG asset, perfectly centered,
 
 ## Repository Checklist
 
-- `package.json` has `schemaVersion`, `version`, `revitVersions`, `frameworkVersionRange`, and `modules`.
+- `packages.json` has `schemaVersion`, `indexVersion`, `revitVersions`, `frameworkVersionRange`, and `modules`.
+- Every module has `id`, `version`, `assembly`, and `features`.
 - Every `module.id` and `feature.id` is unique and stable.
-- Every command feature has `commandAssembly` and `commandType`.
-- Every relative `assembly`, `commandAssembly`, and `iconPath` exists.
+- Every command feature has `commandType` and resolves its command DLL through feature `commandAssembly` or module `assembly`.
+- Every relative `assembly`, `commandAssembly`, and `iconPath` exists; new packages usually omit `commandAssembly` and inherit module `assembly`.
 - `dist/*.dll` contains the command type and is part of the distributed package.
 - `icons/*.png` is a generated or user-supplied real PNG, exists, and is package-relative.
+- Do not write `enabled`, `visible`, `defaultState`, `buttonSize`, or other runtime state/layout fields into repository manifests.
 - `bin/`, `obj/`, PDBs, and Revit API DLLs are not treated as package release payload.
-- The final release or ZIP includes only user-needed payload such as `package.json`, `dist/*.dll`, and `icons/*.png`.
+- The final release or ZIP includes only user-needed payload such as `packages.json`, `dist/*.dll`, and `icons/*.png`.

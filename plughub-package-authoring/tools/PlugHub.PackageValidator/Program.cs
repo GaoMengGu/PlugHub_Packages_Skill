@@ -9,8 +9,8 @@ internal static class PlugHubPackageValidator
 {
     private static readonly Regex VersionPattern = new("^V\\d+\\.\\d+\\.\\d+$", RegexOptions.Compiled);
     private static readonly string[] DisallowedRootKeys = ["packageDirectories", "moduleSources", "repositories", "conflictPolicy"];
-    private static readonly string[] ValidDefaultStates = ["Visible", "Disabled", "Hidden"];
-    private static readonly string[] ValidButtonSizes = ["large", "small"];
+    private static readonly string[] DisallowedModuleKeys = ["enabled", "visible", "order"];
+    private static readonly string[] DisallowedFeatureKeys = ["defaultState", "buttonSize", "order"];
 
     public static int Run(string[] args)
     {
@@ -64,7 +64,7 @@ internal static class PlugHubPackageValidator
     private static ValidatorOptions ParseOptions(string[] args, List<string> errors)
     {
         var packageRoot = ".";
-        var manifest = "package.json";
+        var manifest = "packages.json";
         var packageRootSet = false;
 
         for (var index = 0; index < args.Length; index++)
@@ -127,10 +127,10 @@ internal static class PlugHubPackageValidator
             errors.Add("缺少必需根字段 modules，或 modules 为空。");
         }
 
-        var version = GetPropertyText(manifest, "version");
-        if (!VersionPattern.IsMatch(version))
+        var indexVersion = GetPropertyText(manifest, "indexVersion");
+        if (indexVersion.Length > 0 && !VersionPattern.IsMatch(indexVersion))
         {
-            errors.Add("根字段 version 必须匹配 V<major>.<minor>.<patch>。");
+            errors.Add("根字段 indexVersion 必须匹配 V<major>.<minor>.<patch>，或省略。");
         }
 
         var rootRevitVersions = GetStringArray(manifest, "revitVersions");
@@ -191,12 +191,15 @@ internal static class PlugHubPackageValidator
             errors.Add($"重复的 module id：{moduleId}");
         }
 
-        foreach (var boolKey in new[] { "enabled", "visible" })
+        var moduleVersion = GetPropertyText(module, "version").Trim();
+        if (!VersionPattern.IsMatch(moduleVersion))
         {
-            if (!module.TryGetProperty(boolKey, out var value) || value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-            {
-                errors.Add($"{location}.{boolKey} 必须是布尔值。");
-            }
+            errors.Add($"{location}.version 必须匹配 V<major>.<minor>.<patch>。");
+        }
+
+        foreach (var key in DisallowedModuleKeys.Where(key => module.TryGetProperty(key, out _)).Order(StringComparer.Ordinal))
+        {
+            errors.Add($"外部插件包清单不应主动定义运行时状态或布局字段：{location}.{key}");
         }
 
         var moduleRevitVersions = GetStringArray(module, "revitVersions");
@@ -212,7 +215,7 @@ internal static class PlugHubPackageValidator
         }
         else
         {
-            warnings.Add($"{location}.assembly 为空；每个 feature 必须定义 commandAssembly。");
+            errors.Add($"{location}.assembly 为必填，feature 默认继承它作为命令程序集。");
         }
 
         if (!TryGetArray(module, "features", out var features) || features.GetArrayLength() == 0)
@@ -256,8 +259,10 @@ internal static class PlugHubPackageValidator
             errors.Add($"重复的 feature id：{featureId}");
         }
 
-        ValidateOptionalEnum(feature, "defaultState", ValidDefaultStates, $"{location}.defaultState", errors);
-        ValidateOptionalEnum(feature, "buttonSize", ValidButtonSizes, $"{location}.buttonSize", errors);
+        foreach (var key in DisallowedFeatureKeys.Where(key => feature.TryGetProperty(key, out _)).Order(StringComparer.Ordinal))
+        {
+            errors.Add($"外部插件包清单不应主动定义运行时状态或布局字段：{location}.{key}");
+        }
 
         var commandAssembly = GetPropertyText(feature, "commandAssembly").Trim();
         if (commandAssembly.Length == 0)
@@ -296,20 +301,6 @@ internal static class PlugHubPackageValidator
             {
                 errors.Add($"{location}.iconPath 应指向 PNG 文件。");
             }
-        }
-    }
-
-    private static void ValidateOptionalEnum(JsonElement element, string propertyName, string[] allowed, string label, List<string> errors)
-    {
-        if (!element.TryGetProperty(propertyName, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
-        {
-            return;
-        }
-
-        var text = ElementToText(value);
-        if (!allowed.Contains(text, StringComparer.Ordinal))
-        {
-            errors.Add($"{label} 必须是 {string.Join(", ", allowed)} 之一。");
         }
     }
 

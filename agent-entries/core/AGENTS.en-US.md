@@ -21,24 +21,28 @@ Deliver Revit 2020 feature requests as complete PlugHub external packages that c
 
 ## Workflow
 
-1. Locate the package root, current manifest, and nearby examples.
-2. Map the request to a module id, feature id, Ribbon group, button size, icon path, command assembly, and command type.
-3. Maintain `package.json` or `*.package.json` with complete `schemaVersion`, `version`, `revitVersions`, `frameworkVersionRange`, and `modules`.
-4. Implement or repair the `net48` command assembly; command types must implement `Autodesk.Revit.UI.IExternalCommand`.
-5. Keep payloads package-relative: `dist/*.dll` and `icons/*.png`.
-6. Update build entry points, solution files, or package-repository integration files.
-7. Run the C# package validator, repository validator, and compile checks; run a Revit 2020 runtime smoke test when available.
+1. Confirm the user-specified work branch; when none is specified, ask the user for the branch and do not default to `codex`.
+2. Sync latest `main`, then create or update the user-specified branch from latest `main`.
+3. Locate the package root, current manifest, and nearby examples.
+4. Map the request to a module id, feature id, Ribbon group, icon path, command assembly, and command type.
+5. Maintain `packages.json` or `*.packages.json` with complete `schemaVersion`, `indexVersion`, `revitVersions`, `frameworkVersionRange`, module `version`, and `modules`.
+6. Implement or repair the `net48` command assembly; command types must implement `Autodesk.Revit.UI.IExternalCommand`.
+7. Keep payloads package-relative: `dist/*.dll` and `icons/*.png`.
+8. Update build entry points, solution files, or package-repository integration files.
+9. Run the C# package validator, repository validator, and compile checks; run a Revit 2020 runtime smoke test when available.
+10. After committing and pushing to the user-specified branch, track GitHub workflow results.
 
 ## Delivery
 
 The final delivery must report:
 
 - Added or changed manifest files.
-- Package-relative payloads for `assembly`, `commandAssembly`, and `iconPath`.
+- Package-relative payloads for `assembly`, optional `commandAssembly`, and `iconPath`.
 - Added or repaired command types.
 - Build integration locations.
 - C# static validation and compile results.
 - Revit 2020 runtime smoke-test result; if unavailable, mark it as pending.
+- Push target branch, commit, and GitHub workflow result; if workflow access is unavailable, mark it as unconfirmed.
 
 ## Hermes / OpenClaw
 
