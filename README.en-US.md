@@ -2,6 +2,8 @@
 
 This repository ships skill resources for authoring PlugHub external plugin packages. It includes Chinese and English variants that guide agents to create Revit 2020 packages PlugHub can discover, install, and load.
 
+Default workflow: check PlugHub on the target machine; if missing, install the official GitHub latest version per its instructions and recheck. Compile and validate packages locally, then copy complete packages to the actual scanned directory; the user refreshes manually. No GitHub upload, selected branch, or remote build is required. Report installation, build, validation, copy, and Revit runtime states separately; this repository ships skills and validators.
+
 ## Installable Paths
 
 | Language | Skill name | Path |
@@ -39,6 +41,7 @@ Repository static validation is implemented in C#:
 ```powershell
 dotnet build src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -c Release
 dotnet run --project src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -- .
+pwsh -NoProfile -File tests/Test-LocalWorkflow.ps1
 ```
 
 The PlugHub package validator bundled with each skill is also C#:

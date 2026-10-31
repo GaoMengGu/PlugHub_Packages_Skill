@@ -30,3 +30,9 @@ When finishing a package task, report:
 - whether Revit 2020 runtime smoke testing was performed or remains pending
 
 Do not claim PlugHub runtime load success from static validation alone.
+
+## Local Delivery and Headless Operation
+
+Read authoring-playbook.md first. Verify target machine/OS/Revit and PlugHub installation/version; only when absent, install the official latest version per its instructions and recheck. Build and validate locally before copying the complete package to the actual scanned directory; the user refreshes manually. Clarify permissions, multiple directories, source uncertainty, and file conflicts through platform comments or question panels; never block a headless terminal with interactive prompts.
+
+Also report installation source/version and result, build result, package validation result, actual destination, post-copy file/hash comparison and backup/recovery state, user refresh steps, and untested Revit runtime status separately. Keep installation/copy pending for inaccessible targets; lack of a GitHub branch does not block local development.

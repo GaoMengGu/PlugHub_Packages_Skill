@@ -24,3 +24,5 @@ Run package validation with the bundled C# project:
 ```powershell
 dotnet run --project <skill-dir>\tools\PlugHub.PackageValidator\PlugHub.PackageValidator.csproj -- <package-root>
 ```
+
+Local delivery follows the selected SKILL and authoring-playbook: check/install PlugHub, compile and validate locally, then copy the complete package to the verified scanned directory; the user refreshes manually. Protect existing work, other packages, and config. Report installation/build/validation/copy/runtime states separately; clarify headless blockers through platform comments or panels, not terminal prompts.

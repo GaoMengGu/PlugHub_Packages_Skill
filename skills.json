@@ -37,14 +37,14 @@
       "language": "zh-CN",
       "path": "plughub-package-authoring",
       "default": true,
-      "description": "中文 PlugHub 外部插件包编写 skill"
+      "description": "中文 PlugHub 安装检查、本地编译与完整包投放 skill"
     },
     {
       "name": "plughub-package-authoring-en",
       "language": "en-US",
       "path": "plughub-package-authoring-en",
       "default": false,
-      "description": "English PlugHub external plugin package authoring skill"
+      "description": "English PlugHub installation checks, local compilation and complete package delivery skill"
     }
   ]
 }

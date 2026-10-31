@@ -1,6 +1,6 @@
 ---
 name: plughub-package-authoring
-description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包，使其能被 PlugHub 发现、安装和加载。适用于 packages.json 或 *.packages.json 清单、dist/*.dll 载荷、PlugHub.Contracts 模块、Autodesk.Revit.UI.IExternalCommand 命令、icons、build.ps1、本地/GitHub/Gitee 插件源，以及需要兼容 Codex、Hermes、OpenClaw、Trae、CodeBuddy 的插件包编写任务。
+description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包，使其能被 PlugHub 发现、安装和加载。适用于 packages.json 或 *.packages.json 清单、dist/*.dll 载荷、PlugHub.Contracts 模块、Autodesk.Revit.UI.IExternalCommand 命令、icons、build.ps1、PlugHub 安装检查、本地编译与目录投放、本地/GitHub/Gitee 插件源，以及需要兼容 Codex、Hermes、OpenClaw、Trae、CodeBuddy 的插件包编写任务。
 ---
 
 # PlugHub 插件包编写
@@ -27,11 +27,12 @@ description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包�
 
 ## 工作流
 
-1. 确认 GitHub 工作分支并同步基线。
-   - 工作分支必须是用户指定的工作分支；如果用户没有指定，先询问用户分支，再继续修改代码、提交或推送。
-   - 不要默认使用 `codex`，多 agent 共享同一分支会造成提交、推送和 workflow 结果混乱。
-   - 开始前检查工作区状态，保护已有未提交改动；先同步最新 `main`，再从最新 `main` 创建或更新用户指定分支。
-   - 不直接在 `main` 上开发，不使用破坏性 git 操作，除非用户明确要求。
+1. 检查目标环境与 PlugHub 安装。
+   - 检查工作区，保护已有未提交改动；本地交付不要求 GitHub 分支、同步 main、上传、推送或远程 workflow。仅在用户要求版本控制交付时执行对应 Git 操作，不做破坏性覆盖。
+   - 先读取 `references/authoring-playbook.md` 的安装与目录检查；确认目标机器可访问、操作系统、Revit 2020、构建工具、PlugHub 安装状态与版本。
+   - 从实际 Revit addin 的 Assembly 路径、安装文件和有效配置定位安装根目录及实际扫描的包目录，检查写权限；源码 checkout 不等于已安装。
+   - 已安装则复用，不自动升级。未安装时从核实的官方 GitHub 获取执行时最新版本，按该版本说明安装并复查；官方入口为 https://github.com/GaoMengGu/PlugHub/releases/latest 。
+   - 来源、兼容性、权限或多目录归属不明时停止相关写入并记录阻塞；headless 环境通过平台评论或问题面板澄清，不使用阻塞终端提示。
 
 2. 定位目标插件包根目录和附近示例。
    - 优先沿用已有 `PlugHub_Packages` 结构。
@@ -56,22 +57,21 @@ description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包�
    - 确保构建会产出 `dist/*.dll`，并且该 DLL 作为插件包分发载荷保留。
    - 为每个功能生成图标 PNG，保存到 `icons/<feature>.png`，更新 `feature.iconPath`，并确保图标是真实包文件，不使用 `builtin:` 引用或绝对路径。
 
-6. 完成前验证。
-   - 运行 `dotnet run --project <skill-dir>/tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj -- <package-root>` 检查清单和载荷。
-   - 如果仓库有验证器，通常运行 `.\tests\Validate-Package.ps1`。
-   - 没有安装 Revit 时，用 `.\build.ps1 -UseRevitApiNuGet` 做 CI 风格编译检查；有本机 Revit API DLL 时，用 `.\build.ps1 -RevitApiDir "<Revit 2020 install dir>"`。
-   - 行为验证必须在 Windows + Revit 2020 中使用安全测试模型或族文件做 smoke test。
+6. 本地编译与验证。
+   - 先沿用实际项目入口构建：有本机 API 时使用 `.\build.ps1 -RevitApiDir "<Revit 2020 install dir>"`；否则用 `.\build.ps1 -UseRevitApiNuGet` 获取 NuGet 编译引用并在本地编译。确认脚本支持这些参数；缺 SDK/PowerShell 时报告限制，不把本地编译换成上传 GitHub Actions。
+   - 构建成功后运行 `dotnet run --project <skill-dir>/tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj -- <package-root>` 检查清单和载荷；邻接清单加 `--manifest <DllName>.packages.json`。
+   - 如果仓库有验证器，运行实际入口，通常为 `.\tests\Validate-Package.ps1`。构建或验证失败时停止投放，不使用旧 DLL 冒充新产物。
 
-7. 提交、推送并跟踪 GitHub workflow。
-   - 提交前检查 `git status`，只提交本次任务相关文件。
-   - 推送到用户指定的工作分支，不直接推送 `main`。
-   - 推送后跟踪 GitHub workflow 结果；有 `gh` 时优先使用 `gh run list`、`gh run watch`、`gh run view --log-failed`。
-   - 如果无法访问 GitHub workflow，交付时明确标记 workflow 未确认；如果失败，读取失败日志并区分代码、环境、权限或发布配置问题。
+7. 完整包投放与交付。
+   - 按 playbook 先核实实际目标目录、写权限和同名包冲突；更新前备份到所有扫描目录之外，遇到占用或不明文件停止替换，保护其他包和 config。
+   - 仅将验证通过的完整包（清单、dist DLL、icons 和必需依赖）按相对结构复制到确认的包目录；复制后核对文件列表/哈希并重新运行目标包验证，失败时恢复原包或撤回本次新增目录。
+   - 刷新由用户操作：默认只复制，不自动刷新或重启 Revit；按安装版本说明告知用户重新加载配置，必要时由用户重开 Revit。
+   - 分别报告安装、构建、清单/载荷验证、复制与待刷新状态；Revit runtime smoke test 未执行就明确标记待执行。行为验证需在 Windows + Revit 2020 的安全测试模型或族文件中完成。
 
 ## 硬性规则
 
 - 不要只创建 `.addin` 文件。PlugHub 从 `packages.json` / `*.packages.json` 加载插件包功能。
-- 不要在未获得用户指定的工作分支时开始代码修改、提交或推送；不要默认使用 `codex`。
+- 不要绕过安装检查、构建或包验证直接投放；不要清空 packages 根目录、覆盖 config 或强制解锁已加载 DLL。
 - 不要让 `assembly`、`commandAssembly` 或 `iconPath` 保持绝对路径。PlugHub 按清单目录解析相对路径，并会拒绝复制清单目录外的安装载荷。
 - 新包优先让功能继承 module `assembly`，不要在仓库清单中重复写 `commandAssembly`，除非某个功能确实使用不同 DLL。
 - 不要主动写入 `enabled`、`visible`、`defaultState`、`buttonSize` 等运行时状态或布局字段；这些由框架默认值和用户配置负责。

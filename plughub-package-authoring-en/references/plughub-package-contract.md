@@ -116,7 +116,7 @@ GitHub source:
 }
 ```
 
-User drop-in layout:
+User drop-in layout (relative to the verified scanned root only):
 
 ```text
 packages/dropins/PlugHub_Packages/
@@ -126,3 +126,9 @@ packages/dropins/PlugHub_Packages/
   icons/
     example-tool.png
 ```
+
+## Local Delivery Boundary
+
+`packages/dropins/PlugHub_Packages/` illustrates a relative layout, not a fixed absolute installation path. Resolve the real scanned root from the effective addin Assembly location and module configuration; the default is packages under the installation directory. Source checkouts, repository caches, and runtime-cache are not evidence of an installed directory. See the [installation and copy workflow](authoring-playbook.md).
+
+For manual local delivery, copy the validated complete package with its manifest-relative dist, icons, and required dependencies. The repository-install payload list above describes the framework's own install service, not a substitute for complete manual copying. Keep backups/staging outside all scanned roots to avoid duplicate module/feature ids, preserve other packages/config, compare hashes, and revalidate the destination. The user refreshes manually; this does not prove Revit command execution.

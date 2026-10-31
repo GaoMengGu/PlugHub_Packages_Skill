@@ -116,7 +116,7 @@ GitHub 来源：
 }
 ```
 
-用户投放目录：
+用户投放目录（仅为已确认扫描根目录下的相对结构示例）：
 
 ```text
 packages/dropins/PlugHub_Packages/
@@ -126,3 +126,9 @@ packages/dropins/PlugHub_Packages/
   icons/
     example-tool.png
 ```
+
+## 本地投放边界
+
+`packages/dropins/PlugHub_Packages/` 是结构示例，不是固定绝对安装路径；从有效 addin 的 Assembly 位置与模块配置解析真实扫描根目录，默认是安装目录下的 packages。源码路径、仓库缓存和 runtime-cache 都不能作为已安装目录的证据。详见 [本地安装及复制流程](authoring-playbook.md)。
+
+手动本地交付复制验证过的完整包，保留清单目录内的 dist、icons 和必需依赖结构；上述“仓库安装载荷”描述框架自身的安装服务，并不代替手动完整复制。备份/暂存放在所有扫描范围之外，避免重复 module/feature id；保护其他包和 config，复制后核对哈希并重新验证目标包。刷新由用户操作，不能据此宣称 Revit 命令已执行成功。

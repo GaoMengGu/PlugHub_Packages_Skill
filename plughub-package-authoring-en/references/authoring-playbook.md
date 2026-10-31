@@ -2,25 +2,42 @@
 
 Use this playbook when implementing or repairing a PlugHub package repository.
 
-## Implementation Steps
+## Installation and Directory Checks
 
-0. Prepare the GitHub work branch.
-   - Use the user-specified work branch; if the user has not specified one, ask the user for the branch and do not default to `codex`.
-   - Inspect `git status` and do not overwrite existing uncommitted changes.
-   - Sync latest `main`: run `git fetch origin`, switch to `main`, then run `git pull --ff-only origin main`.
-   - Create or update the user-specified branch from latest `main`, then continue implementation on that branch.
-   - After commit and push, track GitHub workflow results: prefer `gh run list`, `gh run watch`, and `gh run view --log-failed`; if workflow status cannot be accessed, mark workflow verification as unconfirmed in the delivery result.
+1. Inspect the worktree and protect existing uncommitted changes; a GitHub branch is not required for local work. Do not automatically stash, switch branches, sync main, upload, or push. Preserve overlapping edits and clarify ownership first.
+2. Verify the actual target machine, operating system, Revit 2020, .NET SDK, and PowerShell. On Linux/macOS or an inaccessible Windows target, report available static work separately; do not claim installation or delivery.
+3. Inspect effective Revit 2020 addins at machine and current-user scope. Read the Assembly in PlugHub.addin and verify its `PlugHub.Revit2020.dll`, `PlugHub.Contracts.dll`, configuration, and file version. A directory name or source checkout does not prove installation. For multiple addin/install candidates, list paths and evidence and ask which instance is active.
+4. Reuse a compatible installed version without upgrading. If missing, obtain the latest version at execution time from verified official GitHub, install using that tag's instructions, and recheck addin, DLLs, version, and directories. Official entries: [GaoMengGu/PlugHub](https://github.com/GaoMengGu/PlugHub) and [latest Release](https://github.com/GaoMengGu/PlugHub/releases/latest). Query metadata with PowerShell, select an official asset from that Release, and record the tag, download URL, and install result:
 
-### Branch State Decision Table
+```powershell
+$Release = Invoke-RestMethod 'https://api.github.com/repos/GaoMengGu/PlugHub/releases/latest'
+$Release | Select-Object tag_name, html_url
+$Release.assets | Select-Object name, browser_download_url
+```
 
-| State | Handling |
+Prefer the official `PlugHub-Setup-<tag>.exe` and follow that tag's instructions without inventing silent switches. If only source is available, follow its build/install instructions and record the commit. Stop and report missing releases/instructions, blocked network, unknown source, or incompatibility; do not silently substitute older or prerelease versions. If UAC or administrator approval is required and unavailable in the current headless environment, hand installation to the user/IT and keep it pending until rechecked; do not bypass elevation.
+
+5. Resolve the runtime root from the actual addin Assembly directory and read effective module configuration under its `config`. Resolve `packageDirectories` and enabled `localFolder` sources relative to the runtime root. The official default is `packages` under the installation directory; examples are not proof of the effective destination. Even a user-specified path must be confirmed as scanned by the active instance; never copy into repository caches or `runtime-cache`.
+6. Verify destination write permission including replacement and recovery. Do not change ACLs, take ownership, or clean unrelated packages. Stop affected writes and clarify unknown source, version, destination, or permission. In headless mode, use platform comments/question panels without blocking terminal prompts.
+
+Verified baseline (2026-10-31): official API returned `V1.5.7`, a dated observation rather than a fixed install version. The [official user guide](https://github.com/GaoMengGu/PlugHub/blob/cacc665b64be92cb115b58b8a3db1caac1706067/README.md) documents a variable install directory, machine-wide Revit addin registration, and UAC. The [runtime entry](https://github.com/GaoMengGu/PlugHub/blob/cacc665b64be92cb115b58b8a3db1caac1706067/src/PlugHub.Revit2020/ExternalApplicationEntry.cs) uses the assembly directory as its root; the [scanner](https://github.com/GaoMengGu/PlugHub/blob/cacc665b64be92cb115b58b8a3db1caac1706067/src/PlugHub.Framework/Sources/ModuleSourceResolver.cs) resolves configured local paths and discovers manifests recursively. Recheck the installed version and these contracts for each execution.
+
+### Local Delivery Decision Table
+
+| State | Next step and report |
 | --- | --- |
-| No user-specified branch | Stop and ask the user for the branch; do not edit code, commit, or push. |
-| Worktree has uncommitted changes | Stop and describe the changes; stash, commit, or layer edits only with user consent. |
-| User-specified branch does not exist | Create it from latest `origin/main`. |
-| User-specified branch exists and is clean | Sync latest `main`, then update that branch from latest `main` before continuing. |
-| The remote branch is ahead or diverged | Stop and report the difference; do not silently rebase, force-push, or overwrite remote state. |
-| Updating the branch creates conflicts | Stop and report conflicting files; do not guess a resolution. |
+| Installed and compatible | Record version and effective directories; reuse installation and develop. |
+| Missing installation | Query official latest release, install per its instructions, and recheck before claiming success. |
+| Inaccessible target or non-Windows target | Stop installation/delivery, report access blocker, and separate available static work. |
+| Unknown source, missing release, or incompatibility | Stop installation and clarify; do not silently substitute sources or versions. |
+| Multiple installations or package directories | List addin/configuration evidence and clarify destination before writes. |
+| No write permission or unavailable UAC | Preserve files; ask user/IT to resolve without bypassing permissions. |
+| Build or package validation failure | Stop deployment, report errors, fix, rebuild, and revalidate. |
+| Same-name destination, duplicate module/feature id, or unexplained files | Establish update ownership and back up; clarify unrelated id conflicts or unknown content first. |
+| Locked DLL or interrupted copy | Do not forcibly unlock; restore original or withdraw the new directory, report failure, and await user closure of relevant applications. |
+| Copy checks passed | Report copied, awaiting user refresh; unperformed Revit smoke testing remains pending. |
+
+## Implementation Steps
 
 This skill and package validator enforce a publishable clickable package contract: modules need a version, distributable assembly, and non-empty feature list, and command features need `commandType`. This is stricter than PlugHub's minimum runtime JSON-read condition so delivered packages are installable and clickable.
 
@@ -33,7 +50,7 @@ This skill and package validator enforce a publishable clickable package contrac
 2. Create or update the project.
    - Target `net48`.
    - Reference `PlugHub.Contracts`.
-   - Reference Revit API by installed DLLs for local development or `Autodesk.Revit.SDK` with `PrivateAssets="all"` and `ExcludeAssets="runtime"` for CI compile references.
+   - Reference Revit API by installed DLLs for local development or `Autodesk.Revit.SDK` with `PrivateAssets="all"` and `ExcludeAssets="runtime"` for local NuGet compile references.
    - Keep Revit API DLLs out of the package payload.
 
 Minimal project shape:
@@ -189,12 +206,11 @@ Output: Only the black and transparent solid icon PNG asset, perfectly centered,
    - Set `feature.iconPath` to `icons/<feature>.png`.
    - Build to `dist/<AssemblyName>.dll`.
 
-6. Validate.
-   - Run `dotnet run --project <skill-dir>/tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj -- <package-root>`.
-   - Run `.\tests\Validate-Package.ps1` when the package repo has it.
-   - Run `.\build.ps1 -UseRevitApiNuGet` when Revit is not installed.
-   - Run `.\build.ps1 -RevitApiDir "<Revit 2020 API DLL directory>"` when local Revit API DLLs are available.
-   - Revit behavior still requires Windows + Revit 2020 runtime validation.
+6. Build locally, then validate.
+   - Run the actual script with installed DLLs or NuGet compile references; both paths compile locally. Verify SDK, PowerShell, `PlugHub.Contracts` reference paths, and supported script parameters.
+   - Use `.\build.ps1 -RevitApiDir "<Revit 2020 API DLL directory>"` for installed DLLs, otherwise `.\build.ps1 -UseRevitApiNuGet`.
+   - Only after a successful build, run `dotnet run --project <skill-dir>/tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj -- <package-root>`; add `--manifest <DllName>.packages.json` for an adjacent manifest.
+   - Run `.\tests\Validate-Package.ps1` when present. Stop delivery on any build/validation failure; do not deliver stale DLLs.
 
 ## Repository Checklist
 
@@ -208,3 +224,26 @@ Output: Only the black and transparent solid icon PNG asset, perfectly centered,
 - Do not write `enabled`, `visible`, `defaultState`, `buttonSize`, or other runtime state/layout fields into repository manifests.
 - `bin/`, `obj/`, PDBs, and Revit API DLLs are not treated as package release payload.
 - The final release or ZIP includes only user-needed payload such as `packages.json`, `dist/*.dll`, and `icons/*.png`.
+
+## Complete Package Copy and Recheck
+
+1. Confirm the actual scanned root and this package's unique destination subdirectory. Check module/feature ids in other scanned packages to avoid duplicate registration. Use a built and validated distribution directory containing the manifest, `dist/*.dll`, `icons/*.png`, and required dependencies; exclude source, bin/obj, Revit API DLLs, and user config.
+2. Inventory existing destination files and establish ownership of any same-name package. Back up the complete existing package outside every scanned directory and compare file lists/hashes to establish recoverability; clarify unknown files or ownership. Backups inside packages would be discovered as duplicate manifests by recursive scanning.
+3. Copy the complete package from the validated distribution into a unique staging directory outside every scanned directory, preserving relative structure; reject links/reparse points leading outside the package. Validate the staged copy and compare all file hashes, including manifests, icons, and dependencies. Leave the original untouched at this stage.
+
+```powershell
+# Resolve all four variables from prior checks; Staging is a unique directory that does not yet exist.
+$PackageRoot = '<validated distribution root>'
+$Staging = '<unique staging directory outside all scanned roots>'
+$Destination = '<verified scanned root>/<this-package>'
+$Validator = '<skill-dir>/tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj'
+Copy-Item -LiteralPath $PackageRoot -Destination $Staging -Recurse -ErrorAction Stop
+dotnet run --project $Validator -- $Staging
+if ($LASTEXITCODE -ne 0) { throw 'Staged package validation failed' }
+```
+
+4. Replace only this package's unique subdirectory after staging is complete and the backup is recoverable. Move any original outside scanned roots first, then move staging into the destination; avoid recursive overlays that retain obsolete DLLs. Stop on locked DLLs without closing applications or forcibly unlocking files. Copy/move can cross volumes and is not guaranteed atomic; record progress and inspect each result.
+5. Compare complete source/destination relative file lists and per-file SHA-256, then run the same validator on the destination (with the same `--manifest` for adjacent manifests). On failed checks or interrupted copies, withdraw only this attempt's additions/replacement and restore the original package. If recovery fails, preserve backup and failure evidence, stop, and ask the user to intervene; never report completion. Do not delete the packages root, other packages, or config.
+6. Copy only by default; the user refreshes manually. Report copied, awaiting user refresh. Per the installed version's instructions, tell the user to reload configuration in PlugHub Manager and, if necessary, close and reopen Revit and check enabled state/layout. Refresh does not prove a hot replacement of DLLs in the current Revit session; do not automatically refresh or restart.
+
+Delivery must separately report target machine, installed version/source, installation checks or results, build command/exit result, manifest/payload validation, source/destination and hash comparison, backup/recovery state, user refresh steps, and Revit runtime smoke test result or pending status. Static validation or copying does not prove Revit loading or command execution.
