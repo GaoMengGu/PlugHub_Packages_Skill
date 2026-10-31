@@ -2,6 +2,8 @@
 
 本仓库提供用于编写 PlugHub 外部插件包的技能资源，包含中文和英文两个版本。技能会指导 agent 创建能被 PlugHub 发现、安装和加载的 Revit 2020 插件包。
 
+默认流程：检查目标机 PlugHub，缺失时按官方 GitHub 最新版说明安装并复查；本地编译和验证插件包，再复制完整包到实际扫描目录，刷新由用户操作。无需上传 GitHub、指定分支或依赖远程构建。安装、构建、验证、复制与 Revit runtime 状态分别报告；本仓库只提供技能和校验工具。
+
 ## 可安装路径
 
 | 语言 | Skill 名称 | 路径 |
@@ -39,6 +41,7 @@ Agent 拿到仓库地址后，应优先读取 [skills.json](skills.json)，再�
 ```powershell
 dotnet build src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -c Release
 dotnet run --project src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -- .
+pwsh -NoProfile -File tests/Test-LocalWorkflow.ps1
 ```
 
 技能随包携带的 PlugHub 包验证器同样使用 C#：

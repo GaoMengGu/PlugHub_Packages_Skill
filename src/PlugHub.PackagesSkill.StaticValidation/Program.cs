@@ -174,11 +174,10 @@ internal static class RepositoryValidator
             RequireContains(agents, "skills.json", "agent-entries/core/AGENTS.md must use skills.json discovery.", errors);
             RequireContains(agents, "Hermes", "agent-entries/core/AGENTS.md must mention Hermes.", errors);
             RequireContains(agents, "OpenClaw", "agent-entries/core/AGENTS.md must mention OpenClaw.", errors);
-            RequireContains(agents, "用户指定的工作分支", "agent-entries/core/AGENTS.md must require a user-specified work branch.", errors);
-            RequireContains(agents, "不要默认使用 `codex`", "agent-entries/core/AGENTS.md must forbid defaulting to codex.", errors);
-            RequireContains(agents, "同步最新 `main`", "agent-entries/core/AGENTS.md must require syncing latest main.", errors);
-            RequireContains(agents, "跟踪 GitHub workflow", "agent-entries/core/AGENTS.md must require tracking GitHub workflow results.", errors);
-            RequireContains(agents, "推送目标分支", "agent-entries/core/AGENTS.md delivery must report the push target branch.", errors);
+            foreach (var requirement in new[] { "安装状态", "执行时最新版本", "本地构建", "复制完整包", "刷新由用户操作", "已有未提交改动" })
+            {
+                RequireContains(agents, requirement, $"Core Chinese AGENTS must retain local delivery requirement: {requirement}", errors);
+            }
         }
 
         var agentsEnglish = ReadRequiredText(root, "agent-entries/core/AGENTS.en-US.md", errors);
@@ -190,11 +189,10 @@ internal static class RepositoryValidator
             RequireContains(agentsEnglish, "agent-entries/core/IDENTITY.en-US.md", "agent-entries/core/AGENTS.en-US.md must load IDENTITY.en-US.md.", errors);
             RequireContains(agentsEnglish, "agent-entries/core/SOUL.en-US.md", "agent-entries/core/AGENTS.en-US.md must load SOUL.en-US.md.", errors);
             RequireContains(agentsEnglish, "skills.json", "agent-entries/core/AGENTS.en-US.md must use skills.json discovery.", errors);
-            RequireContains(agentsEnglish, "user-specified work branch", "agent-entries/core/AGENTS.en-US.md must require a user-specified work branch.", errors);
-            RequireContains(agentsEnglish, "do not default to `codex`", "agent-entries/core/AGENTS.en-US.md must forbid defaulting to codex.", errors);
-            RequireContains(agentsEnglish, "Sync latest `main`", "agent-entries/core/AGENTS.en-US.md must require syncing latest main.", errors);
-            RequireContains(agentsEnglish, "track GitHub workflow", "agent-entries/core/AGENTS.en-US.md must require tracking GitHub workflow results.", errors);
-            RequireContains(agentsEnglish, "Push target branch", "agent-entries/core/AGENTS.en-US.md delivery must report the push target branch.", errors);
+            foreach (var requirement in new[] { "installation state", "latest version at execution time", "Build locally", "copy the complete package", "user refreshes manually", "existing uncommitted changes" })
+            {
+                RequireContains(agentsEnglish, requirement, $"Core English AGENTS must retain local delivery requirement: {requirement}", errors);
+            }
         }
 
         foreach (var platformEntry in new Dictionary<string, string>
@@ -241,7 +239,7 @@ internal static class RepositoryValidator
             var playbook = ReadRequiredText(root, $"{skillDirectory}/references/authoring-playbook.md", errors);
             RequireContains(playbook, "tools/PlugHub.PackageValidator/PlugHub.PackageValidator.csproj", $"{skillDirectory}/authoring-playbook.md must reference the C# package validator.", errors);
             ValidatePackageManifestContract(root, skillDirectory, skillText, contract, playbook, errors);
-            ValidateGitHubWorkflow(skillDirectory, skillText, playbook, errors);
+            ValidateLocalWorkflow(skillDirectory, skillText, playbook, errors);
             ValidateIconDesignLanguage(skillDirectory, skillText, contract, playbook, errors);
 
             var compatibility = ReadRequiredText(root, $"{skillDirectory}/references/agent-compatibility.md", errors);
@@ -286,28 +284,29 @@ internal static class RepositoryValidator
         RejectContains(validator, "Root version", $"{skillDirectory} package validator must not require legacy root version.", errors);
     }
 
-    private static void ValidateGitHubWorkflow(string skillDirectory, string skillText, string playbook, List<string> errors)
+    private static void ValidateLocalWorkflow(string skillDirectory, string skillText, string playbook, List<string> errors)
     {
-        var combinedDocs = string.Join("\n", skillText, playbook);
-        if (skillDirectory.EndsWith("-en", StringComparison.Ordinal))
+        var english = skillDirectory.EndsWith("-en", StringComparison.Ordinal);
+        var requirements = english
+            ? new[] { "Revit 2020", "installed version", "latest version at execution time from verified official GitHub", "recheck", "write permission", "existing uncommitted changes", "-RevitApiDir", "-UseRevitApiNuGet", "complete package", "outside every scanned directory", "user refreshes manually", "runtime smoke test" }
+            : new[] { "目标机器", "安装状态", "未安装时从核实的官方 GitHub 获取执行时最新版本", "复查", "写权限", "已有未提交改动", "-RevitApiDir", "-UseRevitApiNuGet", "完整包", "所有扫描目录之外", "刷新由用户操作", "runtime smoke test" };
+        foreach (var (path, text) in new[] { ("SKILL.md", skillText), ("references/authoring-playbook.md", playbook) })
         {
-            RequireContains(combinedDocs, "user-specified work branch", $"{skillDirectory} docs must require a user-specified work branch.", errors);
-            RequireContains(combinedDocs, "ask the user for the branch", $"{skillDirectory} docs must ask for a branch when none is specified.", errors);
-            RequireContains(combinedDocs, "Do not default to `codex`", $"{skillDirectory} docs must forbid defaulting to codex.", errors);
-            RequireContains(combinedDocs, "sync latest `main`", $"{skillDirectory} docs must require syncing latest main before work.", errors);
-            RequireContains(combinedDocs, "track GitHub workflow", $"{skillDirectory} docs must require tracking GitHub workflow results after push.", errors);
-            RequireContains(playbook, "Branch State Decision Table", $"{skillDirectory}/authoring-playbook.md must define branch state handling decisions.", errors);
-            RequireContains(playbook, "remote branch is ahead or diverged", $"{skillDirectory}/authoring-playbook.md must stop on ahead/diverged branches instead of force-updating.", errors);
-            return;
+            foreach (var requirement in requirements)
+            {
+                RequireContains(text, requirement, $"{skillDirectory}/{path} missing local delivery requirement: {requirement}", errors);
+            }
+            RequireContains(text, "https://github.com/GaoMengGu/PlugHub/releases/latest", $"{skillDirectory}/{path} must identify the official latest-release entry.", errors);
+            foreach (var obsolete in new[] { "先询问用户分支", "同步最新 `main`", "跟踪 GitHub workflow", "ask the user for the branch", "sync latest `main`", "track GitHub workflow" })
+            {
+                RejectContains(text, obsolete, $"{skillDirectory}/{path} retains obsolete mandatory GitHub workflow text: {obsolete}", errors);
+            }
         }
-
-        RequireContains(combinedDocs, "用户指定的工作分支", $"{skillDirectory} docs must require a user-specified work branch.", errors);
-        RequireContains(combinedDocs, "先询问用户分支", $"{skillDirectory} docs must ask for a branch when none is specified.", errors);
-        RequireContains(combinedDocs, "不要默认使用 `codex`", $"{skillDirectory} docs must forbid defaulting to codex.", errors);
-        RequireContains(combinedDocs, "同步最新 `main`", $"{skillDirectory} docs must require syncing latest main before work.", errors);
-        RequireContains(combinedDocs, "跟踪 GitHub workflow", $"{skillDirectory} docs must require tracking GitHub workflow results after push.", errors);
-        RequireContains(playbook, "分支状态决策表", $"{skillDirectory}/authoring-playbook.md must define branch state handling decisions.", errors);
-        RequireContains(playbook, "远端分支领先或已分叉", $"{skillDirectory}/authoring-playbook.md must stop on ahead/diverged branches instead of force-updating.", errors);
+        RequireContains(playbook, english ? "Local Delivery Decision Table" : "本地交付决策表", $"{skillDirectory} playbook must define local delivery decisions.", errors);
+        foreach (var requirement in new[] { "PlugHub.addin", "packageDirectories", "SHA-256", "--manifest" })
+        {
+            RequireContains(playbook, requirement, $"{skillDirectory} playbook must retain install/copy evidence: {requirement}", errors);
+        }
     }
 
     private static void ValidateIconDesignLanguage(string skillDirectory, string skillText, string contract, string playbook, List<string> errors)

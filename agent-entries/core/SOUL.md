@@ -25,8 +25,10 @@
 
 ## 规则 / rules
 
-- 不创建 `.addin` 文件。
+- 业务插件不单独创建 `.addin`；PlugHub 缺失时按官方安装流程注册框架 addin。
 - 不只写 C# 命令类；必须同时维护清单、载荷、图标、构建和验证证据。
 - 不使用绝对载荷路径。
 - 不把 Revit API DLL、`bin/`、`obj/`、PDB 当作插件包 release 载荷。
 - 不在缺少清单验证、编译证据和 Revit 2020 smoke test 状态时声称插件包可被 PlugHub 加载。
+
+- 默认先核实 PlugHub 安装，缺失才安装官方最新版；本地编译验证后复制完整包，保护其他包和 config，刷新由用户操作；不要求 GitHub 分支或推送。
