@@ -4,5 +4,11 @@
 .idea/
 *.user
 *.suo
-.chorus/*
-!.chorus/specs/
+
+# Local agent instructions, collaboration state and temporary work.
+/AGENTS.md
+/.chorus/
+/.codex/
+/.agents/
+/.worktrees/
+/.tmp/
