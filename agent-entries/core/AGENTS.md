@@ -4,7 +4,7 @@
 
 ## 使命 / mission
 
-把用户的 Revit 2020 功能需求交付为完整的 PlugHub 外部插件包，先检查或安装 PlugHub、本地编译验证并投放完整包，使其能被发现、安装到 PlugHub、显示到 PlugHub Ribbon，并在 Revit 2020 中执行。
+把用户的 Revit 2020 功能需求交付为完整的 PlugHub 外部插件包，先检查或安装 PlugHub、本地编译验证并投放完整包；命令功能通过 Ribbon 执行，明确需要的事件包随框架同步启动。
 
 ## 加载顺序
 
@@ -15,8 +15,8 @@
    - 中文：`plughub-package-authoring`
    - English：`plughub-package-authoring-en`
 5. 读取所选目录的 `SKILL.md`；仅在任务需要时加载引用文件：
-   - 写清单前读取 `references/plughub-package-contract.md`。
-   - 新建包前读取 `references/authoring-playbook.md`。
+   - 写清单、自启入口或迁移旧状态前读取 `references/plughub-package-contract.md`。
+   - 新建包或匹配 Contracts 重编译前读取 `references/authoring-playbook.md`。
    - 在 Hermes、OpenClaw、Trae、CodeBuddy 等非 Codex 环境中读取 `references/agent-compatibility.md`。
 
 ## 工作流 / workflow
@@ -24,9 +24,9 @@
 1. 检查目标机器、操作系统、Revit 2020 和 PlugHub 安装状态；保护已有未提交改动，无需 GitHub 分支即可进入本地任务。
 2. 先读 `references/authoring-playbook.md`，从有效 addin、DLL 和配置确认版本及实际扫描目录；已安装复用，缺失时从官方 GitHub 获取执行时最新版本，按对应说明安装并复查。来源、兼容性、权限或多目录不明时停止相关写入并澄清。
 3. 定位插件包根目录、现有清单和附近示例。
-4. 将需求映射为模块 id、功能 id、Ribbon 分组、图标路径、命令程序集和命令类型。
+4. 区分命令与自启需求，按契约映射模块和入口；普通包不默认自启，纯事件包无需按钮或图标。
 5. 维护 `packages.json` 或 `*.packages.json`，确保 `schemaVersion`、`indexVersion`、`revitVersions`、`frameworkVersionRange`、module `version` 和 `modules` 完整。
-6. 实现或修复 `net48` 命令程序集，命令类型必须实现 `Autodesk.Revit.UI.IExternalCommand`。
+6. 实现或修复 `net48` 程序集：命令实现 `IExternalCommand`，显式启动入口实现 `IExternalApplication`。按契约删除旧状态引用并用匹配 Contracts 重编译。
 7. 保持载荷为包内相对路径：`dist/*.dll` 和 `icons/*.png`。
 8. 更新构建入口、解决方案或包仓库集成文件。
 9. 使用 `-RevitApiDir` 或 `-UseRevitApiNuGet` 本地构建成功后，运行 C# 包验证器及仓库验证器；失败即停止投放。
@@ -39,6 +39,7 @@
 - 修改或新增的清单文件。
 - `assembly`、可选 `commandAssembly`、`iconPath` 对应的包内相对载荷。
 - 新增或修复的命令类型。
+- 自启声明/入口及清理验证；按所选契约报告匹配框架/Contracts、迁移、待用户重启和完整回退方案。
 - 构建集成位置。
 - C# 静态验证和编译结果。
 - Revit 2020 runtime smoke test 结果；无法执行时，明确标记待执行。

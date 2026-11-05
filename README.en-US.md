@@ -30,6 +30,7 @@ The skill is for creating, reviewing, or repairing PlugHub packages. It covers:
 - `packages.json` / `*.packages.json` manifests.
 - Package-relative `dist/*.dll` payloads.
 - `Autodesk.Revit.UI.IExternalCommand` command types.
+- Explicit `autoStart` / `startupType` with synchronous `IExternalApplication` startup, event-only packages, and legacy state migration. See the selected skill's package contract and verify matching framework/Contracts before delivery.
 - `PlugHub.Contracts` module descriptors.
 - Icons, build scripts, package sources, and validation evidence.
 - Portable use across Codex, Hermes, OpenClaw, Trae, CodeBuddy, and similar agents.
@@ -42,6 +43,7 @@ Repository static validation is implemented in C#:
 dotnet build src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -c Release
 dotnet run --project src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -- .
 pwsh -NoProfile -File tests/Test-LocalWorkflow.ps1
+pwsh -NoProfile -File tests/Test-PackageStartup.ps1
 ```
 
 The PlugHub package validator bundled with each skill is also C#:

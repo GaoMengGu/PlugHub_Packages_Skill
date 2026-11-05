@@ -9,3 +9,5 @@
 - `codebuddy/`：CodeBuddy 专用入口。
 
 本地交付按所选 SKILL 和 authoring-playbook 执行：检查或安装 PlugHub，本地编译验证后将完整包复制到已核实的扫描目录，刷新由用户操作。保护已有改动、其他包和 config，分别报告安装、构建、验证、复制与运行状态；无人值守的阻塞通过平台评论或问题面板澄清，不使用终端交互提示。
+
+自启入口、纯事件包和旧状态迁移先读所选 skill 的 `references/plughub-package-contract.md`；保留来源/仓库开关，核实匹配 Contracts，并按契约告知用户何时需要重启。

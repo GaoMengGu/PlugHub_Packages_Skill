@@ -1,8 +1,8 @@
 # PlugHub 插件包契约
 
-此参考描述 PlugHub 当前会发现、安装和加载的插件包形态。
+此参考描述 PlugHub 插件包契约。同步自启与旧状态清理基线为 2026-11-04 的[框架提交 dbb5ca2](https://github.com/GaoMengGu/PlugHub/commit/dbb5ca27c1aa1d9f86b6a8c5ae889ad9c48b6c3d)；该提交不代表功能已发布。投放前核实目标安装及匹配 Contracts，不能假定已有安装或最新 Release 包含此契约。
 
-本契约描述 PlugHub 运行时和插件包仓库共同依赖的字段。技能仓库中的包验证器会进一步执行“可发布、可点击插件包”强约束，例如要求 module `version`、非空 `features`、可分发 `assembly` 和命令 feature 的 `commandType`；这些约束用于发布质量控制，可能严于运行时最低 JSON 读取条件。
+技能仓库中的包验证器执行可交付插件包约束：要求 module `version`、可分发 `assembly`、`features` 数组和每个命令 feature 的 `commandType`；普通模块的功能数组非空，显式自启模块允许空数组。它检查 JSON 与载荷文件，不反射加载 DLL，不能证明启动接口、构造函数或实际 Revit 行为。
 
 ## 发现规则
 
@@ -16,7 +16,7 @@
 
 - PlugHub Revit 运行时当前面向 Revit `2020`。
 - 如果模块声明了 `revitVersions`，列表必须包含 `"2020"`；否则 PlugHub 会用兼容性诊断跳过该模块。
-- `frameworkVersionRange` 当前作为元数据保留，运行时尚未严格计算范围；除非 PlugHub 框架契约变化，插件包仓库应保持 `">=1.3.0"`。
+- `frameworkVersionRange` 当前作为元数据保留，运行时尚未严格计算范围；插件包仓库保持 `">=1.3.0"`，但不能靠它阻止新旧 Contracts 混装。核对实际框架/Contracts 构建或 DLL 哈希，协调匹配版本后投放。
 - 插件命令程序集应面向 `net48`。
 
 ## 清单形态
@@ -60,6 +60,9 @@
 - `module.version`：模块版本，仓库页展示和更新判断使用这个字段。
 - `module.author`：模块作者元数据。
 - `module.assembly`：包内相对 DLL 路径。某个功能省略 `commandAssembly` 时，它也是 fallback；新包通常让功能继承该值。
+- `module.autoStart`：可选 JSON boolean，缺省或 false 不加载启动入口；字符串、数字、null 均非法。
+- `module.startupType`：可选 JSON string；自启为 true 时必须为同记录 `assembly` 内的完整 CLR 类型名，具体接口与生命周期见下节。
+- `module.features`：数组；普通命令包非空，合法纯自启包可用 `[]`，无需按钮或图标。
 - `module.displayName`：模块分组名称。已有包会让相关模块共享名称，例如视图工具。
 - `module.category` / `module.tags`：仓库筛选、默认布局和展示元数据；feature 未设置时会继承这些分类信息。
 - `feature.group`：workspace 没有显式 group 布局时的 fallback Ribbon panel 名称。
@@ -67,7 +70,37 @@
 - `feature.commandType`：实现 `Autodesk.Revit.UI.IExternalCommand` 的完整 CLR 类型名。
 - `feature.iconPath`：包内相对图标路径。优先指向生成或提供的 PNG 文件，命名为 `icons/<feature>.png`；该文件必须真实存在并随包载荷分发。PlugHub/Revit 图标使用 32×32 透明底 PNG，主体建议在 24×24 安全区内并保留 4px 留白；高分屏由 Revit 自动缩放，不需要额外多倍图。
 
-对外部插件包仓库，除非正在编辑 PlugHub 框架配置，否则不要在包清单根节点放 `packageDirectories`、`moduleSources`、`repositories`、`conflictPolicy`。也不要主动写入 `enabled`、`visible`、`defaultState`、`buttonSize` 等运行时状态或布局字段，框架会使用默认值并由用户配置覆盖。包仓库验证器会拒绝这些字段。
+对外部插件包仓库，除非正在编辑 PlugHub 框架配置，否则不要在包清单根节点放 `packageDirectories`、`moduleSources`、`repositories`、`conflictPolicy`。模块 `enabled` / `visible`、功能 `defaultState` 已移除，不能再用作启停/隐藏开关；`buttonSize` / `order` 等布局字段仍由框架配置管理，包验证器继续拒绝这些字段。
+
+## 同步启动
+
+仅对明确需要事件/资源注册的模块，在 `modules[]` 中声明以下记录；它仍需要前述根对象外壳：
+
+```json
+{
+  "id": "plughub.modules.example-events",
+  "version": "V1.0.0",
+  "assembly": "dist/PlugHub.ExampleEvents.dll",
+  "autoStart": true,
+  "startupType": "PlugHub.ExampleEvents.Startup",
+  "features": []
+}
+```
+
+- `startupType` 必须为该 DLL 内公开、非抽象、可无参构造的 `Autodesk.Revit.UI.IExternalApplication` 类型。普通包省略两字段；false 即使带类型也不实例化。旧 `type`、`IPlugHubModule.Initialize/Shutdown` 和功能 `commandType` 不替代启动入口。
+- 框架在 Revit 主线程、框架 `OnStartup` 返回前同步调用入口，先于 Ribbon 构建。不延后到 `ApplicationInitialized`；不能假设有活动文档，不通过 `Task.Run` 调用 Revit API，也不为包另注册 `.addin`。入口应短小，阻塞主线程无法被安全强杀。
+- 自启与 Ribbon 呈现无关，`features: []` 或功能被布局排除都不影响自启。候选来自已安装/有效本地来源，通过兼容性和重复 ID 检查；远程仓库缓存不参与启动。顺序由框架的 Order/ID 决定，`dependsOn` 目前没有启动调度语义。
+- 同一会话每个模块至多尝试一次。构造/初始化失败或返回 Failed/Cancelled 会记录诊断并继续其他模块；已进入 `OnStartup` 的失败实例尽力调用一次 `OnShutdown`，构造前失败没有实例可清理。包须撤销失败前的局部注册，并让清理对部分初始化安全。
+- 成功实例保持到退出，按成功启动的逆序调用 `OnShutdown`；一个清理失败不阻断其他实例。框架后续 Ribbon 构建失败也会尽力清理。
+- 刷新、点击按钮和会话内新增包不重试初始化；自启包安装、更新、卸载或声明变更在下次 Revit 会话生效，当前成功实例保持到关闭。用户须重启验收，不能依赖 net48 热卸载。
+
+## 旧状态迁移与回退
+
+- 删除源码中 `ModuleDescriptor.State` / `ModuleState`、`FeatureDescriptor.DefaultState` / `FeatureState` 引用。描述接口其余成员及现有空 Initialize/Shutdown 可保留，不能承诺框架调用它们；失败转诊断，不另造启停状态。
+- 新清单、生成器和模板不输出 `modules[].enabled` / `visible`、`features[].defaultState`；预设只去除 `moduleOverrides[].enabled` / `visible`，保留排序、视图和组合。框架忽略旧值，合格已安装功能恢复正常资格，正常定向保存去旧键；不批量重写无关配置。
+- 保留来源 `moduleSources[].enabled`、仓库 `enabled` / public/private、WPF `Visibility`、安装状态和诊断，以及兼容性、稳定 ID、注册/工作区校验。禁止全局按 State/Enabled/Visible 名称删除。
+- 保留 feature ID、`commandKey`、`commandType` 和业务行为。盘点源码、模板、测试、随包 Contracts 及实际引用路径，删除失效状态引用后用匹配新 Contracts 重编译所有受影响包；旧 DLL 可能因公开成员删除而加载失败。
+- 回退须先关闭 Revit，同时恢复完整框架、匹配 Contracts、包 DLL/依赖及清单/配置备份；只回滚 JSON 不能修复二进制不匹配。
 
 ## 安装载荷
 

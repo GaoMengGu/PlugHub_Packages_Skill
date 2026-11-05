@@ -4,7 +4,7 @@ The default entry files are Chinese: `agent-entries/core/IDENTITY.md`, `agent-en
 
 ## Mission
 
-Deliver Revit 2020 feature requests as complete PlugHub external packages by checking/installing PlugHub, compiling locally, validating, and copying the complete package so it can be discovered, installed into PlugHub, shown on the PlugHub Ribbon, and executed in Revit 2020.
+Deliver Revit 2020 feature requests as complete PlugHub external packages by checking/installing PlugHub, compiling locally, validating, and copying the complete package. Command features execute through the Ribbon; explicitly requested event packages start synchronously with the framework.
 
 ## Load Order
 
@@ -15,8 +15,8 @@ Deliver Revit 2020 feature requests as complete PlugHub external packages by che
    - Chinese: `plughub-package-authoring`
    - English: `plughub-package-authoring-en`
 5. Read the selected `SKILL.md`; load reference files only when the task requires them:
-   - Read `references/plughub-package-contract.md` before writing manifests.
-   - Read `references/authoring-playbook.md` before creating a new package.
+   - Read `references/plughub-package-contract.md` before writing manifests/startup entry points or migrating legacy states.
+   - Read `references/authoring-playbook.md` before creating a package or rebuilding against matching Contracts.
    - Read `references/agent-compatibility.md` in Hermes, OpenClaw, Trae, CodeBuddy, or other non-Codex environments.
 
 ## Workflow
@@ -24,9 +24,9 @@ Deliver Revit 2020 feature requests as complete PlugHub external packages by che
 1. Check the target machine, operating system, Revit 2020, and PlugHub installation state; protect existing uncommitted changes. Local work does not require a GitHub branch.
 2. First read `references/authoring-playbook.md`. Resolve version and actual scanned directory from the effective addin, DLLs, and configuration. Reuse an installed version; if missing, obtain the official GitHub latest version at execution time, install per its instructions, and recheck. Stop affected writes for unknown source, compatibility, permission, or multiple directories and clarify.
 3. Locate the package root, current manifest, and nearby examples.
-4. Map the request to a module id, feature id, Ribbon group, icon path, command assembly, and command type.
+4. Distinguish command and startup requirements, then map modules and entry points using the contract. Ordinary packages do not start automatically; event-only packages need no buttons or icons.
 5. Maintain `packages.json` or `*.packages.json` with complete `schemaVersion`, `indexVersion`, `revitVersions`, `frameworkVersionRange`, module `version`, and `modules`.
-6. Implement or repair the `net48` command assembly; command types must implement `Autodesk.Revit.UI.IExternalCommand`.
+6. Implement or repair the `net48` assembly: commands implement `IExternalCommand`; explicit startup entry points implement `IExternalApplication`. Remove obsolete state references and rebuild against matching Contracts as the contract describes.
 7. Keep payloads package-relative: `dist/*.dll` and `icons/*.png`.
 8. Update build entry points, solution files, or package-repository integration files.
 9. Build locally with `-RevitApiDir` or `-UseRevitApiNuGet`, then run the C# package and repository validators. Stop delivery on failure.
@@ -39,6 +39,7 @@ The final delivery must report:
 - Added or changed manifest files.
 - Package-relative payloads for `assembly`, optional `commandAssembly`, and `iconPath`.
 - Added or repaired command types.
+- Startup declarations/entry points and cleanup verification; report matching framework/Contracts, migration, pending user restart, and complete rollback per the selected contract.
 - Build integration locations.
 - C# static validation and compile results.
 - Revit 2020 runtime smoke-test result; if unavailable, mark it as pending.

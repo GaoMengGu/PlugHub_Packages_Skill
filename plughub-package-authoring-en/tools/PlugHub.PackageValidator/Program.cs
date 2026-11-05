@@ -218,10 +218,50 @@ internal static class PlugHubPackageValidator
             errors.Add($"{location}.assembly is required; features inherit it as their command assembly by default.");
         }
 
-        if (!TryGetArray(module, "features", out var features) || features.GetArrayLength() == 0)
+        var autoStart = false;
+        if (module.TryGetProperty("autoStart", out var autoStartValue))
         {
-            errors.Add($"{location}.features must be a non-empty array.");
+            if (autoStartValue.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                autoStart = autoStartValue.GetBoolean();
+            }
+            else
+            {
+                errors.Add($"{location}.autoStart must be a JSON boolean.");
+            }
+        }
+
+        var startupType = string.Empty;
+        if (module.TryGetProperty("startupType", out var startupTypeValue))
+        {
+            if (startupTypeValue.ValueKind == JsonValueKind.String)
+            {
+                startupType = startupTypeValue.GetString() ?? string.Empty;
+                if (startupType.Length > 0 && (!startupType.Contains('.', StringComparison.Ordinal) || startupType.Any(char.IsWhiteSpace)))
+                {
+                    errors.Add($"{location}.startupType must be a full CLR type name.");
+                }
+            }
+            else
+            {
+                errors.Add($"{location}.startupType must be a JSON string.");
+            }
+        }
+
+        if (autoStart && string.IsNullOrWhiteSpace(startupType))
+        {
+            errors.Add($"{location}.startupType is required when autoStart is true.");
+        }
+
+        if (!TryGetArray(module, "features", out var features))
+        {
+            errors.Add($"{location}.features must be an array; startup-only modules may use an empty array.");
             return;
+        }
+
+        if (features.GetArrayLength() == 0 && !autoStart)
+        {
+            errors.Add($"{location}.features must be non-empty for modules without startup.");
         }
 
         var featureIndex = 0;

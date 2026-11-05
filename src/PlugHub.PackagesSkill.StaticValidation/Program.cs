@@ -259,7 +259,7 @@ internal static class RepositoryValidator
         RequireContains(combinedDocs, "*.packages.json", $"{skillDirectory} docs must mention adjacent *.packages.json manifests.", errors);
         RequireContains(combinedDocs, "indexVersion", $"{skillDirectory} docs must document repository indexVersion.", errors);
         RequireAnyContains(combinedDocs, ["module `version`", "module.version", "每个 module 包含 `id`、`version`"], $"{skillDirectory} docs must document module-level version.", errors);
-        RequireContains(combinedDocs, skillDirectory.EndsWith("-en", StringComparison.Ordinal) ? "publishable clickable package" : "可发布、可点击插件包", $"{skillDirectory} docs must distinguish skill publish constraints from the PlugHub runtime minimum.", errors);
+        RequireContains(combinedDocs, skillDirectory.EndsWith("-en", StringComparison.Ordinal) ? "deliverable package contract" : "可交付插件包约束", $"{skillDirectory} docs must document the deliverable package contract.", errors);
 
         RejectContains(combinedDocs, "`package.json`", $"{skillDirectory} docs must not document the legacy package.json manifest name.", errors);
         RejectContains(combinedDocs, "`*.package.json`", $"{skillDirectory} docs must not document the legacy *.package.json manifest pattern.", errors);
@@ -270,6 +270,7 @@ internal static class RepositoryValidator
         RejectContains(combinedDocs, "\"buttonSize\"", $"{skillDirectory} docs must not tell authors to write buttonSize layout fields.", errors);
         RejectContains(combinedDocs, "\"commandAssembly\": \"dist/PlugHub.ExampleTool.dll\"", $"{skillDirectory} docs must not repeat commandAssembly when module assembly is sufficient.", errors);
         RejectContains(playbook, "DefaultState = FeatureState.Visible", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden layout state fields.", errors);
+        RejectContains(playbook, "State = ModuleState.", $"{skillDirectory}/authoring-playbook.md descriptor example must not use removed Contracts state members.", errors);
         RejectContains(playbook, "ButtonSize = \"large\"", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden layout state fields.", errors);
         RejectContains(playbook, "CommandAssembly = \"dist/PlugHub.ExampleTool.dll\"", $"{skillDirectory}/authoring-playbook.md descriptor example should inherit module assembly instead of repeating command assembly.", errors);
         RejectContains(playbook, "Order = 500", $"{skillDirectory}/authoring-playbook.md descriptor example must not include manifest-forbidden ordering fields.", errors);

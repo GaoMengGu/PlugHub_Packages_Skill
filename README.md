@@ -32,6 +32,7 @@ Agent 拿到仓库地址后，应优先读取 [skills.json](skills.json)，再�
 - `packages.json` / `*.packages.json` 清单。
 - `dist/*.dll` 包内相对载荷。
 - `Autodesk.Revit.UI.IExternalCommand` 命令类型。
+- 显式 `autoStart` / `startupType` 的 `IExternalApplication` 同步自启、纯事件包及旧状态契约迁移；规则见所选 skill 的包契约，投放前核实匹配框架/Contracts。
 - `PlugHub.Contracts` 模块描述。
 - 图标、构建脚本、包源配置和交付证据。
 - Codex、Hermes、OpenClaw、Trae、CodeBuddy 等 agent 的通用使用方式。
