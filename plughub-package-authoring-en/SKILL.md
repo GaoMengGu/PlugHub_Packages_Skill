@@ -1,18 +1,18 @@
 ---
 name: plughub-package-authoring-en
-description: Use when creating, reviewing, or repairing Revit 2020 PlugHub external plugin packages that PlugHub must discover, install, and load. Applies to packages.json or *.packages.json manifests, dist/*.dll payloads, PlugHub.Contracts modules, Autodesk.Revit.UI.IExternalCommand commands, icons, build.ps1, PlugHub installation checks, local compilation and directory delivery, local/GitHub/Gitee package sources, and plugin package authoring across Codex, Hermes, OpenClaw, Trae, and CodeBuddy.
+description: Use when creating, reviewing, or repairing Revit 2020 PlugHub external packages. Covers packages.json or *.packages.json manifests, dist/*.dll payloads, PlugHub.Contracts modules, IExternalCommand commands, IExternalApplication synchronous startup, legacy state migration, icons, build.ps1, installation checks, local compilation and package delivery across Codex, Hermes, OpenClaw, Trae, and CodeBuddy.
 ---
 
 # PlugHub Package Authoring
 
-Use this skill to produce a complete PlugHub-loadable package, not just a Revit command class. A valid package has a discoverable manifest, package-relative payload paths, a `net48` command assembly, and verification evidence.
+Use this skill to produce a complete PlugHub-loadable package. A valid package has a discoverable manifest, package-relative payload paths, a `net48` assembly, and verification evidence.
 
-This skill and its package validator enforce a publishable clickable package contract: every module must have a distributable DLL, a version, and at least one clickable feature, and every command feature must declare `commandType`. This is stricter than PlugHub's minimum runtime JSON-read contract so agents do not deliver half-finished packages that can be scanned but not installed, clicked, or diagnosed reliably.
+This skill and its package validator enforce a deliverable package contract: every module has a distributable DLL, a version, and a `features` array. Ordinary command packages need at least one feature, and every command feature needs `commandType`. An event-only package with explicit `autoStart: true` and valid `startupType` may use `features: []` without invented buttons or icons. See the contract for synchronous startup and migration rules.
 
 ## Requirement Handling
 
 - Treat the user's request as a plugin feature specification, not as a documentation question. Unless the user explicitly asks only for a plan, actually create or modify package files.
-- First map the request to one user-clickable Revit feature: module id, feature id, Ribbon group, command type, input method, transaction boundary, failure messages, and validation approach.
+- Distinguish command features from event/resource registration at framework startup. For commands, specify module id, feature id, Ribbon group, command type, input method, transaction boundary, failure messages, and validation approach. For startup requirements, read the contract's synchronous startup rules.
 - If the feature changes the model, the command must use an explicit Revit API transaction. If it only reads state or asks for selection, still handle no active document, no active view, cancelled selection, and related failure paths.
 - Default to producing a complete PlugHub-discoverable package: `packages.json` / `*.packages.json`, `dist/*.dll` build path, icon path, project file, build script registration, and validation evidence.
 - If the current environment cannot run Revit 2020, report only static validation and build results, and explicitly mark the Revit runtime smoke test as pending. Do not equate static validation with runtime success.
@@ -36,8 +36,8 @@ This skill and its package validator enforce a publishable clickable package con
 
 2. Locate the target package root and nearby examples.
    - Prefer existing `PlugHub_Packages` patterns when present.
-   - If the package format is uncertain, read `references/plughub-package-contract.md`.
-   - If implementing a new package, read `references/authoring-playbook.md`.
+   - Before writing manifests or startup entry points, or migrating legacy state members, read `references/plughub-package-contract.md`.
+   - Before creating a package or rebuilding against matching Contracts, read `references/authoring-playbook.md`.
    - If operating in Hermes, OpenClaw, Trae, CodeBuddy, or another non-Codex agent, read `references/agent-compatibility.md`.
 
 3. Make the package discoverable.
@@ -45,11 +45,13 @@ This skill and its package validator enforce a publishable clickable package con
    - Keep payload paths relative to the manifest directory.
    - Use `dist/<AssemblyName>.dll` for module assemblies, let features inherit module `assembly` by default, and use `icons/<feature>.png` for feature icons.
 
-4. Implement the Revit command assembly.
+4. Implement the Revit assembly.
    - Target `.NET Framework 4.8` / `net48`.
    - Reference `RevitAPI.dll`, `RevitAPIUI.dll`, and `PlugHub.Contracts`.
    - Add one `IExternalCommand` class per user-triggered feature.
    - Add an `IPlugHubModule` class whose `Describe()` mirrors the manifest metadata, but do not rely on this class alone; PlugHub package discovery reads JSON manifests.
+   - Only for an explicit startup requirement, add an `IExternalApplication` in the same DLL and declare `autoStart: true` plus `startupType`; ordinary packages omit both fields. Legacy `type`, `IPlugHubModule.Initialize/Shutdown`, and `commandType` do not provide the new startup lifecycle.
+   - Remove references to `ModuleDescriptor.State` / `ModuleState` and `FeatureDescriptor.DefaultState` / `FeatureState`, then rebuild against Contracts matching the target framework. Neither an old Initialize method nor a package name justifies enabling startup.
 
 5. Update repository integration files.
    - Add the project to the solution and `build.ps1` if the repo uses them.
@@ -65,7 +67,7 @@ This skill and its package validator enforce a publishable clickable package con
 7. Deploy the complete package and report.
    - Follow the playbook to verify the actual destination, write permission, and same-name conflicts; back up an existing package outside every scanned directory before replacement. Stop on locked or unexplained files and protect other packages and config.
    - Copy only the validated complete package (manifest, dist DLLs, icons, and required dependencies), preserving relative structure. After copying, compare file lists/hashes and rerun validation on the destination package; restore the original package or withdraw the new directory on failure.
-   - The user refreshes manually: copy only by default, without automatic refresh or Revit restart. Explain configuration reload and, when required, reopening Revit according to the installed version's instructions.
+   - The user refreshes manually: copy only by default, without automatic refresh or Revit restart. Startup package additions, updates, removals, and declaration changes require a user restart of Revit before acceptance; refresh does not reinitialize packages.
    - Report installation, build, manifest/payload validation, copy, and pending-refresh states separately. Mark the Revit runtime smoke test as pending when unperformed; behavior requires Windows + Revit 2020 with a safe test model or family file.
 
 ## Hard Rules
@@ -74,9 +76,9 @@ This skill and its package validator enforce a publishable clickable package con
 - Do not deploy before installation checks, build, and package validation. Never clear the packages root, overwrite config, or forcibly unlock loaded DLLs.
 - Do not leave `commandAssembly`, `assembly`, or `iconPath` absolute. PlugHub resolves relative paths from the manifest directory and rejects install payloads outside that directory.
 - Prefer feature inheritance from module `assembly`; do not repeat `commandAssembly` in repository manifests unless a feature really uses a different DLL.
-- Do not actively write `enabled`, `visible`, `defaultState`, `buttonSize`, or other runtime state/layout fields; framework defaults and user configuration own those values.
-- Do not omit `commandType`; it must be the full type name of an `Autodesk.Revit.UI.IExternalCommand`.
-- Do not put business logic in the module descriptor class. Keep behavior in command classes.
+- Module `enabled` / `visible` and feature `defaultState` have been removed; new manifests omit them. Package manifests still exclude user layout fields such as `buttonSize` / `order`. Preserve distinct settings such as source/repository `enabled`; migrate by scope as the contract describes.
+- Every command feature needs `commandType`, the full type name of an `Autodesk.Revit.UI.IExternalCommand`.
+- Module descriptors provide metadata; command classes implement commands, and explicit startup entry points register and release events/resources.
 - Do not claim the package is loadable until manifest validation, build validation, and relevant Revit smoke testing are reported.
 
 ## Reference Map

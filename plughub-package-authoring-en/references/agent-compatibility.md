@@ -5,6 +5,7 @@ The skill is intentionally Markdown-first so Codex, Hermes, OpenClaw, Trae, Code
 ## Portable Rules
 
 - Load `SKILL.md` first, then load only the reference file needed for the task.
+- For startup, event-only packages, or legacy state migration, read `references/plughub-package-contract.md`; use `references/authoring-playbook.md` for rebuild and restart/rollback acceptance. Ordinary command-package button/icon requirements do not apply to event-only packages.
 - Use the agent's native file read, patch, shell, and validation tools; do not assume Codex-specific tool names.
 - Keep commands explicit and copyable. Prefer PowerShell examples on Windows because PlugHub/Revit package work is Windows-oriented.
 - Preserve the root `SKILL.md` filename and YAML frontmatter with only `name` and `description`.

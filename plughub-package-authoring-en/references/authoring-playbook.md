@@ -39,7 +39,7 @@ Verified baseline (2026-10-31): official API returned `V1.5.7`, a dated observat
 
 ## Implementation Steps
 
-This skill and package validator enforce a publishable clickable package contract: modules need a version, distributable assembly, and non-empty feature list, and command features need `commandType`. This is stricter than PlugHub's minimum runtime JSON-read condition so delivered packages are installable and clickable.
+Use the [package contract](plughub-package-contract.md) to distinguish command packages from explicit startup packages. Modules need a version, distributable assembly, and a `features` array; ordinary packages need features, while valid startup-only packages may use an empty array. Every command feature still needs `commandType`. The template below is an ordinary command package with no startup enabled by default.
 
 1. Choose stable names.
    - Assembly: `PlugHub.<FeatureArea>`.
@@ -86,7 +86,7 @@ Minimal project shape:
 </Project>
 ```
 
-Adjust the `ProjectReference` path to the actual PlugHub checkout.
+Set `PlugHubRoot` to an actual checkout matching the target framework and verify `ProjectReference`. An old `revittool` path or same-name stale Contracts may still build against the wrong contract. Record commits or actual DLL SHA-256 rather than relying on equal version numbers. Rebuild affected packages after contract changes; do not deliver old DLLs.
 
 3. Add a module descriptor class.
 
@@ -106,7 +106,6 @@ namespace PlugHub.ExampleTool
                 Id = "plughub.modules.example-tool",
                 Name = "Example Tools",
                 Description = "Example PlugHub tool package.",
-                State = ModuleState.Enabled,
                 Tags = new[] { "example", "revit-api" },
                 Features = new List<FeatureDescriptor>
                 {
@@ -131,7 +130,7 @@ namespace PlugHub.ExampleTool
 }
 ```
 
-The descriptor lets the assembly describe itself, but the manifest remains the primary PlugHub package discovery entry. Do not copy compatibility fields such as `Order`, `DefaultState`, `ButtonSize`, or `CommandAssembly` into repository JSON manifests; new packages should let features inherit module `assembly`, while layout and state remain owned by framework defaults and user configuration.
+The descriptor provides metadata; the manifest remains the discovery entry. `State` / `ModuleState` and `DefaultState` / `FeatureState` have been removed from Contracts. Empty Initialize/Shutdown methods in this example only satisfy the descriptor interface; they are not automatically called lifecycle hooks. Do not copy remaining descriptor fields such as `Order`, `ButtonSize`, or `CommandAssembly` into package manifests. Features inherit module `assembly` by default, and framework configuration owns layout.
 
 4. Add an external command.
 
@@ -221,9 +220,17 @@ Output: Only the black and transparent solid icon PNG asset, perfectly centered,
 - Every relative `assembly`, `commandAssembly`, and `iconPath` exists; new packages usually omit `commandAssembly` and inherit module `assembly`.
 - `dist/*.dll` contains the command type and is part of the distributed package.
 - `icons/*.png` is a generated or user-supplied real PNG, exists, and is package-relative.
-- Do not write `enabled`, `visible`, `defaultState`, `buttonSize`, or other runtime state/layout fields into repository manifests.
+- Omit module `enabled` / `visible` and feature `defaultState`; keep layout fields such as `buttonSize` / `order` out of package manifests. Migrate by scope as the contract describes, preserving source/repository switches and WPF visibility.
 - `bin/`, `obj/`, PDBs, and Revit API DLLs are not treated as package release payload.
 - The final release or ZIP includes only user-needed payload such as `packages.json`, `dist/*.dll`, and `icons/*.png`.
+
+## Synchronous Startup and Migration Acceptance
+
+1. Follow the [startup and legacy state contract](plughub-package-contract.md) to verify `autoStart` / `startupType` and the target framework build. Omit both fields without a startup requirement. Startup-only packages use `features: []` and skip command/icon steps above; packages with buttons retain command and icon requirements.
+2. Inventory source, generators, templates, tests, and bundled Contracts when migrating. Remove obsolete state references, preserving IDs, command mappings, and business behavior. If an old Initialize contains behavior, establish whether to migrate it into `IExternalApplication` explicitly; do not automatically enable startup.
+3. Verify Contracts references, rebuild, and run the package validator. It checks declarations and files only; verify interface implementation, public parameterless construction, and lifecycle separately through compilation/runtime checks. Stop delivery on failure; `frameworkVersionRange` is not a compatibility guarantee.
+4. In Windows + Revit 2020, check document-free startup; only declared modules register once before framework startup returns; layout exclusions/empty features do not prevent startup; a failed package does not block others; partial registration cleans up; refresh/clicks do not retry; exit releases in reverse order; and updates/removals/additions switch after a user restart. Linux builds cannot replace these results.
+5. Report static/build, runtime, copy, and pending-restart states separately, with framework/Contracts/package builds and hashes. Do not publish before matching runtime integration passes. Roll back framework, matching Contracts, package DLLs/dependencies, and manifest/configuration together as the contract requires, rather than JSON alone.
 
 ## Complete Package Copy and Recheck
 
@@ -244,6 +251,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Staged package validation failed' }
 
 4. Replace only this package's unique subdirectory after staging is complete and the backup is recoverable. Move any original outside scanned roots first, then move staging into the destination; avoid recursive overlays that retain obsolete DLLs. Stop on locked DLLs without closing applications or forcibly unlocking files. Copy/move can cross volumes and is not guaranteed atomic; record progress and inspect each result.
 5. Compare complete source/destination relative file lists and per-file SHA-256, then run the same validator on the destination (with the same `--manifest` for adjacent manifests). On failed checks or interrupted copies, withdraw only this attempt's additions/replacement and restore the original package. If recovery fails, preserve backup and failure evidence, stop, and ask the user to intervene; never report completion. Do not delete the packages root, other packages, or config.
-6. Copy only by default; the user refreshes manually. Report copied, awaiting user refresh. Per the installed version's instructions, tell the user to reload configuration in PlugHub Manager and, if necessary, close and reopen Revit and check enabled state/layout. Refresh does not prove a hot replacement of DLLs in the current Revit session; do not automatically refresh or restart.
+6. Copy only by default; the user refreshes manually. For ordinary packages, report copied, awaiting user refresh, then explain configuration reload and registration/layout checks for the installed version. For startup package additions, updates, removals, or declaration changes, report awaiting user Revit restart: refresh does not retry initialization, and successful instances remain until exit. Do not automatically refresh or restart, or promise hot DLL replacement.
 
 Delivery must separately report target machine, installed version/source, installation checks or results, build command/exit result, manifest/payload validation, source/destination and hash comparison, backup/recovery state, user refresh steps, and Revit runtime smoke test result or pending status. Static validation or copying does not prove Revit loading or command execution.

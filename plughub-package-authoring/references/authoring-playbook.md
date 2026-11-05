@@ -39,7 +39,7 @@ $Release.assets | Select-Object name, browser_download_url
 
 ## 实现步骤
 
-本技能和包验证器执行的是可发布、可点击插件包强约束：module 必须有版本、可分发程序集和非空功能列表，命令功能必须声明 `commandType`。这比 PlugHub 运行时最低 JSON 读取条件更严格，目的是避免交付无法安装或无法点击的包。
+先按[插件包契约](plughub-package-contract.md)区分命令包和显式自启包：module 必须有版本、可分发程序集和 `features` 数组；普通包功能非空，合法纯自启包允许空数组，每个命令功能仍需 `commandType`。以下模板是普通命令包，不默认开启自启。
 
 1. 选择稳定命名。
    - Assembly：`PlugHub.<FeatureArea>`。
@@ -86,7 +86,7 @@ $Release.assets | Select-Object name, browser_download_url
 </Project>
 ```
 
-按实际 PlugHub checkout 调整 `ProjectReference` 路径。
+将 `PlugHubRoot` 指向与目标框架匹配的实际 checkout，核对 `ProjectReference`；旧 `revittool` 路径或同名旧 Contracts 可能仍可构建却使用错误契约。新旧产物不能只凭相同版本号区分，应记录提交或实际 DLL SHA-256；契约更新后重新编译受影响包，不交付旧 DLL。
 
 3. 添加模块描述类。
 
@@ -106,7 +106,6 @@ namespace PlugHub.ExampleTool
                 Id = "plughub.modules.example-tool",
                 Name = "示例工具",
                 Description = "示例 PlugHub 插件包。",
-                State = ModuleState.Enabled,
                 Tags = new[] { "example", "revit-api" },
                 Features = new List<FeatureDescriptor>
                 {
@@ -131,7 +130,7 @@ namespace PlugHub.ExampleTool
 }
 ```
 
-描述器用于让程序集自描述，清单仍是 PlugHub 插件包发现的主入口。不要把 `Order`、`DefaultState`、`ButtonSize`、`CommandAssembly` 等兼容字段照搬到仓库 JSON 清单；新包让 feature 继承 module `assembly`，布局和状态交给框架默认值与用户配置。
+描述器用于让程序集自描述，清单仍是发现主入口。`State` / `ModuleState` 和 `DefaultState` / `FeatureState` 已从 Contracts 删除；示例保留的空 Initialize/Shutdown 仅满足描述接口，不是自动调用的生命周期。不要把 `Order`、`ButtonSize`、`CommandAssembly` 等剩余描述字段照搬到包清单；功能默认继承 module `assembly`，布局由框架配置管理。
 
 4. 添加外部命令。
 
@@ -221,9 +220,17 @@ Output: Only the black and transparent solid icon PNG asset, perfectly centered,
 - 每个相对 `assembly`、`commandAssembly`、`iconPath` 指向的文件都存在；新包通常省略 `commandAssembly` 并继承 module `assembly`。
 - `dist/*.dll` 包含命令类型，并作为分发包的一部分保留。
 - `icons/*.png` 是生成或用户提供的真实 PNG，存在且为包内相对路径。
-- 不要把 `enabled`、`visible`、`defaultState`、`buttonSize` 等运行时状态或布局字段写入仓库清单。
+- 不输出模块 `enabled` / `visible`、功能 `defaultState`；仍不向包清单写 `buttonSize` / `order` 等布局字段。按契约迁移，保留来源/仓库开关和 WPF 可见性。
 - 不要把 `bin/`、`obj/`、PDB、Revit API DLL 视为插件包 release 载荷。
 - 最终 release 或 ZIP 只包含用户安装需要的载荷，例如 `packages.json`、`dist/*.dll`、`icons/*.png`。
+
+## 同步启动与迁移验收
+
+1. 按[同步启动和旧状态迁移契约](plughub-package-contract.md)核对 `autoStart` / `startupType` 与目标框架版本；无自启需求就省略两字段。纯事件包使用 `features: []`，跳过上面的命令/图标步骤；有按钮则保留命令与图标要求。
+2. 迁移时清点源码、生成器、模板、测试和随包 Contracts，删除旧状态引用，保留 ID、命令映射及业务行为。旧 Initialize 有业务时单独确认是否迁入 `IExternalApplication`，不能直接默认开启自启。
+3. 核实 Contracts 引用，重编译并运行包验证器；验证器仅检查声明与文件，接口实现、公开无参构造和生命周期须另行编译/实机验证。失败时停止投放，不用 `frameworkVersionRange` 当兼容保证。
+4. Windows + Revit 2020 实机检查：无文档启动；仅声明包在框架启动返回前注册一次；布局排除/空功能不影响自启；一个包失败不阻断后续包；失败局部注册可清理；刷新和点击不重试；退出逆序释放；更新/卸载及新增包在用户重启后切换。Linux 构建通过不能替代这些结果。
+5. 分别报告静态/编译、实机、复制、待重启状态，以及框架/Contracts/包的构建与哈希。匹配联调未通过前不发布；回退按契约同时恢复框架、匹配 Contracts、包 DLL/依赖和清单/配置，不只恢复 JSON。
 
 ## 完整包复制与复查
 
@@ -244,6 +251,6 @@ if ($LASTEXITCODE -ne 0) { throw 'Staged package validation failed' }
 
 4. 只有暂存副本完整且备份可恢复时，替换本包唯一子目录。原目标存在时先移到扫描范围外，再将暂存副本移动到目标；避免直接递归覆盖留下旧 DLL。涉及 DLL 占用时停止，不强制关闭程序或解锁。复制/移动可能跨卷且不保证原子性，记录进度并检查每步结果。
 5. 发布后核对源与目标的全部相对文件列表和逐文件 SHA-256，再对目标运行相同验证器（邻接清单使用相同 `--manifest`）。校验失败或复制中断时，只撤回此次新增/替换内容并恢复原包；恢复也失败时保留备份及失败证据，停止并请用户处理，不报告完成。不要删除 packages 根目录、其他包或 config。
-6. 默认只复制，刷新由用户操作；告知“已复制，待用户刷新”。按安装版本说明让用户在 PlugHub Manager 重新加载配置，必要时自行关闭并重新打开 Revit，检查启用状态和布局。刷新不保证当前 Revit 会话已热替换 DLL；不自动刷新或重启。
+6. 默认只复制，刷新由用户操作；普通包告知“已复制，待用户刷新”，按安装版本说明重新加载配置并检查注册/布局。自启包新增/更新/卸载或声明变更告知“待用户重启 Revit”：刷新不重试初始化，成功实例保持到退出；不自动刷新或重启，也不承诺 DLL 热替换。
 
 交付报告逐项填写：目标机器与安装版本/来源、安装检查或安装结果、构建命令/退出结果、清单与载荷验证、源/目标目录及文件哈希核对、备份/恢复状态、待用户刷新步骤、Revit runtime smoke test 结果或“待执行”。静态验证或复制通过不能证明 Revit 加载及命令执行成功。

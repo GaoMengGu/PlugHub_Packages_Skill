@@ -218,10 +218,50 @@ internal static class PlugHubPackageValidator
             errors.Add($"{location}.assembly 为必填，feature 默认继承它作为命令程序集。");
         }
 
-        if (!TryGetArray(module, "features", out var features) || features.GetArrayLength() == 0)
+        var autoStart = false;
+        if (module.TryGetProperty("autoStart", out var autoStartValue))
         {
-            errors.Add($"{location}.features 必须是非空数组。");
+            if (autoStartValue.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                autoStart = autoStartValue.GetBoolean();
+            }
+            else
+            {
+                errors.Add($"{location}.autoStart 必须是 JSON boolean。");
+            }
+        }
+
+        var startupType = string.Empty;
+        if (module.TryGetProperty("startupType", out var startupTypeValue))
+        {
+            if (startupTypeValue.ValueKind == JsonValueKind.String)
+            {
+                startupType = startupTypeValue.GetString() ?? string.Empty;
+                if (startupType.Length > 0 && (!startupType.Contains('.', StringComparison.Ordinal) || startupType.Any(char.IsWhiteSpace)))
+                {
+                    errors.Add($"{location}.startupType 必须是完整 CLR 类型名。");
+                }
+            }
+            else
+            {
+                errors.Add($"{location}.startupType 必须是 JSON string。");
+            }
+        }
+
+        if (autoStart && string.IsNullOrWhiteSpace(startupType))
+        {
+            errors.Add($"{location}.startupType 在 autoStart 为 true 时为必填。");
+        }
+
+        if (!TryGetArray(module, "features", out var features))
+        {
+            errors.Add($"{location}.features 必须是数组；纯自启模块可使用空数组。");
             return;
+        }
+
+        if (features.GetArrayLength() == 0 && !autoStart)
+        {
+            errors.Add($"{location}.features 在非自启模块中必须是非空数组。");
         }
 
         var featureIndex = 0;

@@ -30,6 +30,7 @@ Agent 拿到仓库地址后，应优先读取 [skills.json](skills.json)，再�
 - `packages.json` / `*.packages.json` 清单。
 - `dist/*.dll` 包内相对载荷。
 - `Autodesk.Revit.UI.IExternalCommand` 命令类型。
+- 显式 `autoStart` / `startupType` 的 `IExternalApplication` 同步自启、纯事件包及旧状态契约迁移；规则见所选 skill 的包契约，投放前核实匹配框架/Contracts。
 - `PlugHub.Contracts` 模块描述。
 - 图标、构建脚本、包源配置和验证证据。
 - Codex、Hermes、OpenClaw、Trae、CodeBuddy 等 agent 的通用使用方式。
@@ -42,6 +43,7 @@ Agent 拿到仓库地址后，应优先读取 [skills.json](skills.json)，再�
 dotnet build src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -c Release
 dotnet run --project src\PlugHub.PackagesSkill.StaticValidation\PlugHub.PackagesSkill.StaticValidation.csproj -- .
 pwsh -NoProfile -File tests/Test-LocalWorkflow.ps1
+pwsh -NoProfile -File tests/Test-PackageStartup.ps1
 ```
 
 技能随包携带的 PlugHub 包验证器同样使用 C#：

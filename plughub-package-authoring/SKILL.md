@@ -1,18 +1,18 @@
 ---
 name: plughub-package-authoring
-description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包，使其能被 PlugHub 发现、安装和加载。适用于 packages.json 或 *.packages.json 清单、dist/*.dll 载荷、PlugHub.Contracts 模块、Autodesk.Revit.UI.IExternalCommand 命令、icons、build.ps1、PlugHub 安装检查、本地编译与目录投放、本地/GitHub/Gitee 插件源，以及需要兼容 Codex、Hermes、OpenClaw、Trae、CodeBuddy 的插件包编写任务。
+description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包，使其能被 PlugHub 发现、安装和加载。适用于 packages.json 或 *.packages.json 清单、dist/*.dll 载荷、PlugHub.Contracts 模块、IExternalCommand 命令、IExternalApplication 同步自启、旧状态契约迁移、icons、build.ps1、PlugHub 安装检查、本地编译与目录投放，以及 Codex、Hermes、OpenClaw、Trae、CodeBuddy 的插件包编写任务。
 ---
 
 # PlugHub 插件包编写
 
-使用此技能时，目标是产出一个完整的、可被 PlugHub 加载的插件包，而不是只写一个 Revit 命令类。有效插件包必须同时具备可发现清单、包内相对载荷路径、`net48` 命令程序集和验证证据。
+使用此技能时，目标是产出一个完整的、可被 PlugHub 加载的插件包。有效插件包必须同时具备可发现清单、包内相对载荷路径、`net48` 程序集和验证证据。
 
-本技能和包验证器执行的是“可发布、可点击插件包”的强约束：每个 module 必须有可分发 DLL、版本和至少一个可点击 feature，每个命令 feature 必须有 `commandType`。这比 PlugHub 运行时最低可读取 JSON 契约更严格，用来避免 agent 交付只能被扫描但不能安装、点击或诊断的半成品。
+本技能和包验证器执行可交付插件包约束：每个 module 有可分发 DLL、版本和 `features` 数组；普通命令包至少有一个 feature，每个命令 feature 有 `commandType`；显式 `autoStart: true` 且有有效 `startupType` 的纯事件包可用 `features: []`，无需虚构按钮或图标。详见契约中的同步启动与迁移规则。
 
 ## 需求处理
 
 - 将用户需求当作插件功能规格，而不是文档咨询。除非用户明确只要方案，否则要实际创建或修改插件包文件。
-- 先把需求落到一个用户可点击的 Revit 功能：模块 id、功能 id、Ribbon 分组、命令类型、输入方式、事务边界、失败消息和验证方式。
+- 先区分命令功能与随框架启动的事件/资源注册需求；命令明确模块 id、功能 id、Ribbon 分组、命令类型、输入方式、事务边界、失败消息和验证方式；自启需求读取契约中的同步启动规则。
 - 如果需求涉及模型修改，命令必须使用明确的 Revit API 事务；如果只是读取或选择，也要处理无活动文档、无活动视图、取消选择等失败路径。
 - 默认产出一个可被 PlugHub 发现的完整包：`packages.json` / `*.packages.json`、`dist/*.dll` 构建路径、图标路径、项目文件、构建脚本登记和验证记录。
 - 如果当前环境无法运行 Revit 2020，只能声明静态验证和构建结果，并明确标记 Revit runtime smoke test 待执行；不要把静态验证等同于运行成功。
@@ -36,8 +36,8 @@ description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包�
 
 2. 定位目标插件包根目录和附近示例。
    - 优先沿用已有 `PlugHub_Packages` 结构。
-   - 如果不确定包格式，读取 `references/plughub-package-contract.md`。
-   - 如果要新增插件包，读取 `references/authoring-playbook.md`。
+   - 写清单、自启入口或迁移旧状态成员前，读取 `references/plughub-package-contract.md`。
+   - 新增插件包或匹配新 Contracts 重编译时，读取 `references/authoring-playbook.md`。
    - 如果运行在 Hermes、OpenClaw、Trae、CodeBuddy 或其他非 Codex agent 中，读取 `references/agent-compatibility.md`。
 
 3. 让插件包可被发现。
@@ -45,11 +45,13 @@ description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包�
    - 所有载荷路径都保持为相对清单目录的路径。
    - 模块程序集使用 `dist/<AssemblyName>.dll`，功能默认继承 module `assembly`，功能图标使用 `icons/<feature>.png`。
 
-4. 实现 Revit 命令程序集。
+4. 实现 Revit 程序集。
    - 目标框架使用 `.NET Framework 4.8` / `net48`。
    - 引用 `RevitAPI.dll`、`RevitAPIUI.dll` 和 `PlugHub.Contracts`。
    - 每个用户可触发功能对应一个 `IExternalCommand` 类。
    - 添加一个 `IPlugHubModule` 类，让 `Describe()` 与清单元数据保持一致；但不要只依赖这个类，PlugHub 插件包发现读取的是 JSON 清单。
+   - 仅在明确需要随框架启动时添加同 DLL 内的 `IExternalApplication`，声明 `autoStart: true` 与 `startupType`；普通包省略两字段。旧 `type`、`IPlugHubModule.Initialize/Shutdown` 和 `commandType` 不承担新自启生命周期。
+   - 删除旧 `ModuleDescriptor.State` / `ModuleState`、`FeatureDescriptor.DefaultState` / `FeatureState` 引用，并使用目标框架匹配的 Contracts 重新编译；不因旧 Initialize 或包名称自动开启自启。
 
 5. 更新仓库集成文件。
    - 如果仓库使用解决方案和 `build.ps1`，把新项目加入其中。
@@ -65,7 +67,7 @@ description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包�
 7. 完整包投放与交付。
    - 按 playbook 先核实实际目标目录、写权限和同名包冲突；更新前备份到所有扫描目录之外，遇到占用或不明文件停止替换，保护其他包和 config。
    - 仅将验证通过的完整包（清单、dist DLL、icons 和必需依赖）按相对结构复制到确认的包目录；复制后核对文件列表/哈希并重新运行目标包验证，失败时恢复原包或撤回本次新增目录。
-   - 刷新由用户操作：默认只复制，不自动刷新或重启 Revit；按安装版本说明告知用户重新加载配置，必要时由用户重开 Revit。
+   - 刷新由用户操作：默认只复制，不自动刷新或重启 Revit；自启包新增/更新/卸载或声明变更需用户重启 Revit 后验收，刷新不会重新初始化。
    - 分别报告安装、构建、清单/载荷验证、复制与待刷新状态；Revit runtime smoke test 未执行就明确标记待执行。行为验证需在 Windows + Revit 2020 的安全测试模型或族文件中完成。
 
 ## 硬性规则
@@ -74,9 +76,9 @@ description: 用于创建、审查或修复 Revit 2020 PlugHub 外部插件包�
 - 不要绕过安装检查、构建或包验证直接投放；不要清空 packages 根目录、覆盖 config 或强制解锁已加载 DLL。
 - 不要让 `assembly`、`commandAssembly` 或 `iconPath` 保持绝对路径。PlugHub 按清单目录解析相对路径，并会拒绝复制清单目录外的安装载荷。
 - 新包优先让功能继承 module `assembly`，不要在仓库清单中重复写 `commandAssembly`，除非某个功能确实使用不同 DLL。
-- 不要主动写入 `enabled`、`visible`、`defaultState`、`buttonSize` 等运行时状态或布局字段；这些由框架默认值和用户配置负责。
-- 不要省略 `commandType`；它必须是实现 `Autodesk.Revit.UI.IExternalCommand` 的完整类型名。
-- 不要把业务逻辑写在模块描述类里。业务行为放在命令类中。
+- 模块 `enabled` / `visible`、功能 `defaultState` 已移除，新清单不输出；包清单仍不写 `buttonSize` / `order` 等用户布局字段。来源/仓库 `enabled` 等不同语义保留，按契约定向迁移。
+- 每个命令 feature 的 `commandType` 必须是实现 `Autodesk.Revit.UI.IExternalCommand` 的完整类型名。
+- 模块描述类仅提供元数据；业务命令放在命令类中，事件注册与成对释放放在显式启动入口中。
 - 在报告清单验证、构建验证和相关 Revit smoke test 结果前，不要声称插件包可被 PlugHub 加载。
 
 ## 参考文件

@@ -5,7 +5,7 @@ Use root `skills.json` to discover installable paths, then load one skill direct
 - `plughub-package-authoring` for Chinese workflows.
 - `plughub-package-authoring-en` for English workflows.
 
-Use the selected `SKILL.md` as the primary instruction file. Load `references/authoring-playbook.md` before scaffolding a new PlugHub package and `references/plughub-package-contract.md` before changing manifests.
+Use the selected `SKILL.md` as the primary instruction file. Load `references/authoring-playbook.md` before scaffolding or rebuilding against new Contracts, and `references/plughub-package-contract.md` before changing manifests, startup entry points, or legacy state references.
 
 Run package validation with the bundled C# project:
 

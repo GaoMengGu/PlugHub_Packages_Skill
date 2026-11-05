@@ -5,7 +5,7 @@ Use root `skills.json` to discover installable paths, then load one skill direct
 - `plughub-package-authoring` for Chinese workflows.
 - `plughub-package-authoring-en` for English workflows.
 
-In the IDE agent flow, pin the selected `SKILL.md` as the task instruction file and open `references/plughub-package-contract.md` before editing package manifests.
+In the IDE agent flow, pin the selected `SKILL.md` as the task instruction file and open `references/plughub-package-contract.md` before editing manifests, startup entry points, or legacy state references; read `references/authoring-playbook.md` before rebuilding against new Contracts.
 
 Run package validation with the bundled C# project:
 

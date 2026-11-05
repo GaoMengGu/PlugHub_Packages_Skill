@@ -5,6 +5,7 @@
 ## 通用规则
 
 - 先加载 `SKILL.md`，再按任务只加载需要的参考文件。
+- 自启、纯事件包或旧状态迁移先读 `references/plughub-package-contract.md`；重编译与重启/回退验收再读 `references/authoring-playbook.md`，不套用普通命令包的按钮/图标要求。
 - 使用当前 agent 原生的文件读取、补丁、shell 和验证工具；不要假设存在 Codex 专用工具名。
 - 命令保持明确、可复制。PlugHub/Revit 包工作面向 Windows，优先给 PowerShell 示例。
 - 保留根目录 `SKILL.md` 文件名；YAML frontmatter 只保留 `name` 和 `description`。
